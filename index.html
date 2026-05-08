@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC 多益全真閱讀模擬考場 v3.2</title>
+    <title>TOEIC 多益全真閱讀模擬考場 v3.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -73,7 +73,7 @@
             <div id="welcome-content">
                 <div class="text-6xl mb-8">🎯</div>
                 <h1 class="text-4xl font-black text-stone-900 mb-4 tracking-tight">多益全真模擬考場</h1>
-                <p class="text-stone-500 mb-12 text-lg">正式測驗與成績管理系統 (v3.2)</p>
+                <p class="text-stone-500 mb-12 text-lg">正式測驗與成績管理系統 (v3.3)</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="p-8 bg-teal-50/50 rounded-3xl border-2 border-teal-100 transition-all hover:shadow-md">
@@ -170,6 +170,7 @@
     // --- 核心變數 ---
     let quizData = [], userAnswers = [], currentIdx = 0;
     let timerInterval, startTime, timeStr = "", isReview = false;
+    let currentQuizFileName = "quiz_data"; // 用於記錄匯入的檔案名稱
 
     const dom = {
         welcome: document.getElementById('welcome-screen'),
@@ -183,9 +184,24 @@
         totalCount: document.getElementById('total-count')
     };
 
+    // 格式化日期時間為 YYYYMMDD_HHMM 格式
+    function getFormattedDateTime() {
+        const now = new Date();
+        const YYYY = now.getFullYear();
+        const MM = String(now.getMonth() + 1).padStart(2, '0');
+        const DD = String(now.getDate()).padStart(2, '0');
+        const HH = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        return `${YYYY}${MM}${DD}_${HH}${mm}`;
+    }
+
     function handleFile(input, mode) {
         const file = input.files[0];
         if (!file) return;
+        
+        // 記錄檔案名稱（移除副檔名）
+        currentQuizFileName = file.name.replace(/\.[^/.]+$/, "");
+
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
@@ -240,7 +256,7 @@
         
         const passageArea = document.getElementById('passage-display');
         if (q.part === 5) {
-            passageArea.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-bold text-center leading-relaxed bg-white p-12 rounded-[2.5rem] border-4 border-teal-50 shadow-sm">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 border-b-4 border-teal-700 px-6 mx-2">?</span>')}</div></div>`;
+            passageArea.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-bold text-center leading-relaxed bg-white p-12 rounded-[2.5rem] border-4 border-teal-50 shadow-sm">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 border-b-4 border-teal-700 px-4 mx-2">?</span>')}</div></div>`;
         } else {
             passageArea.innerHTML = `<div class="passage-box shadow-sm">${q.passage || ''}</div><div class="p-8 bg-white rounded-3xl border-l-[12px] border-teal-700 shadow-md ring-1 ring-stone-100"><div class="text-2xl font-black text-stone-900">${q.question}</div></div>`;
         }
@@ -329,7 +345,6 @@
         renderReview('all');
     }
 
-    // --- 核心修正：詳解區列出全部選項 ---
     function renderReview(filter) {
         const list = dom.reviewList;
         list.innerHTML = '';
@@ -352,7 +367,6 @@
             const card = document.createElement('div');
             card.className = `p-10 rounded-[3rem] border-2 transition-all fade-in shadow-sm ${isCorrect ? 'bg-white border-stone-100' : 'bg-red-50/30 border-red-200'}`;
             
-            // 生成選項清單 HTML
             const optionsHtml = q.options.map((opt, optIdx) => {
                 const isCorrectOpt = optIdx === q.answer;
                 const isChosenByUser = optIdx === userChoiceIdx;
@@ -367,7 +381,6 @@
                     optClasses += "bg-red-50 border-red-400 text-red-900 ";
                     labelHtml = '<span class="ml-auto bg-red-400 text-white text-[10px] px-2 py-0.5 rounded font-black">YOUR CHOICE</span>';
                 } else if (isChosenByUser && isCorrect) {
-                    // 使用者選對的情況下，CORRECT 標籤已存在，額外標註 YOUR CHOICE
                     labelHtml = '<span class="ml-auto bg-teal-600 text-white text-[10px] px-2 py-0.5 rounded font-black">✓ YOUR CHOICE</span>';
                 } else {
                     optClasses += "bg-white border-stone-100 text-stone-400 opacity-60 ";
@@ -420,10 +433,23 @@
         });
     }
 
+    // 更新後的匯出邏輯：根據匯入檔名與時間命名
     function exportResult() {
-        const blob = new Blob([JSON.stringify({ quizData, userAnswers, timeTaken: timeStr }, null, 2)], { type: "application/json" });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `toeic_report_${new Date().toISOString().slice(0,10)}.json`; a.click();
-        showToast('分析報告已成功匯出至電腦！');
+        const timestamp = getFormattedDateTime();
+        const exportFileName = `report_${currentQuizFileName}_${timestamp}.json`;
+        
+        const blob = new Blob([JSON.stringify({ 
+            quizData, 
+            userAnswers, 
+            timeTaken: timeStr,
+            exportDate: new Date().toLocaleString()
+        }, null, 2)], { type: "application/json" });
+        
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = exportFileName; 
+        a.click();
+        showToast(`分析報告 ${exportFileName} 已匯出！`);
     }
 
     function filterReview(f) { renderReview(f); }
@@ -439,6 +465,7 @@
             const res = await fetch('./quiz_data.json');
             if (res.ok) {
                 quizData = await res.json();
+                currentQuizFileName = "quiz_data"; // 預設自動讀取的檔名
                 document.getElementById('auto-load-hint').innerHTML = '<span class="text-teal-600 font-bold uppercase animate-pulse">✓ quiz_data.json detected</span>';
             }
         } catch (e) {}
