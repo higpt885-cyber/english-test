@@ -3,453 +3,406 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC 多益全真閱讀模擬考場 v2.9.3</title>
+    <title>TOEIC 多益全真閱讀模擬考場 v3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .chart-container { position: relative; width: 100%; max-width: 700px; margin: auto; height: 300px; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin: auto; height: 300px; }
         @media (min-width: 768px) { .chart-container { height: 350px; } }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .reading-content { line-height: 1.8; }
-        .passage-box { background-color: #ffffff; border: 1px solid #e7e5e4; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0d9488; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .reading-content { line-height: 1.8; font-size: 1.1rem; }
+        .passage-box { background-color: #ffffff; border: 1px solid #e7e5e4; border-radius: 1rem; padding: 2rem; margin-bottom: 1.5rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01); }
         
-        /* 題號地圖樣式 - 修正 Selection_053 */
-        .q-map-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; }
-        @media (max-width: 640px) { .q-map-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; } }
+        /* 題號地圖樣式 - 確保 Selection_052/053 的狀態清晰 */
+        .q-map-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        @media (min-width: 768px) { .q-map-grid { grid-template-columns: repeat(5, 1fr); } }
         
         .ans-dot { 
-            width: 100%; 
             aspect-ratio: 1 / 1; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            font-size: 11px; 
+            font-size: 12px; 
             font-weight: 800; 
-            border-radius: 8px; 
+            border-radius: 10px; 
             cursor: pointer; 
             transition: all 0.2s ease;
             border: 2px solid #f3f4f6;
         }
         .ans-dot.not-answered { background-color: #ffffff; color: #d1d5db; border-color: #f3f4f6; }
-        .ans-dot.answered { background-color: #0d9488; color: #ffffff; border-color: #0d9488; }
-        .ans-dot.current { border-color: #3b82f6; ring: 3px; ring-color: #bfdbfe; transform: scale(1.05); border-width: 3px; z-index: 10; }
+        .ans-dot.answered { background-color: #0d9488 !important; color: #ffffff !important; border-color: #0d9488 !important; box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2); }
+        .ans-dot.current { border-color: #3b82f6 !important; border-width: 3px !important; transform: scale(1.05); z-index: 10; }
         
-        .success-toast { animation: slideUp 0.3s ease-out; }
+        .success-toast { animation: slideUp 0.3s ease-out; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); }
         @keyframes slideUp { from { transform: translateY(100%) translateX(-50%); opacity: 0; } to { transform: translateY(0) translateX(-50%); opacity: 1; } }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans antialiased">
 
 <div id="app" class="min-h-screen flex flex-col">
-    <!-- Navbar -->
-    <nav id="navbar" class="bg-white border-b border-stone-200 sticky top-0 z-50 px-4 py-3 shadow-sm hidden">
+    <!-- 頂部導覽列 -->
+    <nav id="navbar" class="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 py-4 shadow-sm hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-6">
-                <div id="timer-box" class="flex items-center">
-                    <span id="timer-display" class="text-xl font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded border border-teal-100">75:00</span>
+                <span id="timer-display" class="text-xl font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded border border-teal-100">75:00</span>
+                <div class="hidden md:flex gap-2" id="nav-parts">
+                    <button onclick="jumpToPart(5)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 5</button>
+                    <button onclick="jumpToPart(6)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 6</button>
+                    <button onclick="jumpToPart(7)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 7</button>
                 </div>
-                <div class="hidden lg:flex gap-2" id="part-nav-btns">
-                    <button onclick="jumpToPart(5)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-50">Part 5</button>
-                    <button onclick="jumpToPart(6)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-50">Part 6</button>
-                    <button onclick="jumpToPart(7)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-50">Part 7</button>
-                </div>
-                <span id="review-mode-indicator" class="hidden px-4 py-1 bg-amber-50 text-amber-700 text-xs font-black rounded-full border border-amber-100 uppercase tracking-widest">Review Mode</span>
+                <span id="review-tag" class="hidden px-4 py-1 bg-amber-50 text-amber-700 text-xs font-black rounded-full border border-amber-100 uppercase tracking-widest">Review Mode</span>
             </div>
-            <div class="flex items-center space-x-3">
-                <div class="text-right mr-2 hidden sm:block">
-                    <div class="text-[10px] text-stone-400 uppercase font-black tracking-tighter">Progress</div>
-                    <div class="text-sm font-bold text-stone-700"><span id="ans-count">0</span> / <span id="total-count">0</span></div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <div class="text-[10px] text-stone-400 font-black uppercase">Progress</div>
+                    <div class="text-sm font-bold text-teal-700"><span id="ans-count">0</span> / <span id="total-count">0</span></div>
                 </div>
-                <button id="submit-test-btn" class="bg-amber-700 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-800 transition-all shadow-sm">結束測驗並交卷</button>
+                <button id="finish-btn" onclick="confirmFinish()" class="bg-amber-700 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-amber-800 shadow-md">結束交卷</button>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content Area -->
+    <!-- 主要內容 -->
     <main class="flex-grow flex flex-col items-center justify-center p-4">
         
-        <!-- Welcome Screen -->
-        <section id="welcome-screen" class="max-w-3xl w-full bg-white rounded-3xl shadow-xl p-8 md:p-12 text-center fade-in">
+        <!-- 歡迎與選取畫面 (入口優化) -->
+        <section id="welcome-screen" class="max-w-3xl w-full bg-white rounded-[2rem] shadow-xl p-10 md:p-16 text-center fade-in border border-stone-100">
             <div id="welcome-content">
-                <div class="text-6xl mb-6">🎯</div>
-                <h1 class="text-4xl font-black text-stone-900 mb-2 tracking-tight">多益全真模擬考場</h1>
-                <p class="text-stone-500 mb-10 text-lg">正式測驗與成果複習管理系統</p>
+                <div class="text-6xl mb-8">🎯</div>
+                <h1 class="text-4xl font-black text-stone-900 mb-4 tracking-tight">TOEIC 閱讀全真考場</h1>
+                <p class="text-stone-500 mb-12 text-lg">正式測驗與成績管理系統 (v3.1)</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="p-8 bg-teal-50/50 rounded-3xl border-2 border-teal-100 flex flex-col items-center text-center">
-                        <div class="text-3xl mb-4 text-teal-600">📝</div>
-                        <h3 class="text-xl font-bold text-teal-900 mb-2">開始新測驗</h3>
-                        <p class="text-sm text-teal-700/70 mb-6">載入題庫 JSON 檔案以開始模擬 75 分鐘測驗。</p>
-                        <button onclick="triggerQuestionLoad()" class="w-full py-4 bg-teal-700 text-white rounded-2xl font-bold hover:bg-teal-800 transition-all shadow-md">載入題庫 JSON</button>
+                    <div class="p-8 bg-teal-50/50 rounded-3xl border-2 border-teal-100 transition-all hover:shadow-md">
+                        <h3 class="font-bold text-teal-900 mb-4">🆕 開始新測驗</h3>
+                        <button onclick="document.getElementById('q-file').click()" class="w-full py-4 bg-teal-700 text-white rounded-2xl font-bold hover:bg-teal-800 shadow-lg">載入題庫 JSON</button>
+                        <input type="file" id="q-file" accept=".json" class="hidden" onchange="handleFile(this, 'test')">
                     </div>
-                    
-                    <div class="p-8 bg-stone-50 rounded-3xl border-2 border-stone-200 flex flex-col items-center text-center">
-                        <div class="text-3xl mb-4 text-stone-400">📊</div>
-                        <h3 class="text-xl font-bold text-stone-900 mb-2">檢視考過成績</h3>
-                        <p class="text-sm text-stone-500 mb-6">匯入先前下載的結果檔，直接查看詳細解析。</p>
-                        <button onclick="triggerResultLoad()" class="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-md">匯入結果 JSON</button>
+                    <div class="p-8 bg-stone-50 rounded-3xl border-2 border-stone-200 transition-all hover:shadow-md">
+                        <h3 class="font-bold text-stone-900 mb-4">📂 檢視考過成績</h3>
+                        <button onclick="document.getElementById('r-file').click()" class="w-full py-4 bg-stone-800 text-white rounded-2xl font-bold hover:bg-stone-900 shadow-lg">匯入結果 JSON</button>
+                        <input type="file" id="r-file" accept=".json" class="hidden" onchange="handleFile(this, 'review')">
                     </div>
                 </div>
-
-                <input type="file" id="file-input-questions" accept=".json" class="hidden">
-                <input type="file" id="file-input-results" accept=".json" class="hidden">
+                <p id="auto-load-hint" class="mt-8 text-xs text-stone-300">數據將自動讀取同資料夾之 quiz_data.json</p>
             </div>
         </section>
 
-        <!-- Quiz Engine -->
+        <!-- 測驗引擎介面 -->
         <section id="quiz-engine" class="hidden w-full max-w-7xl flex flex-col md:flex-row gap-6 h-[85vh] fade-in">
-            <div class="w-full md:w-3/5 bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+            <!-- 左欄：文章區 -->
+            <div class="w-full md:w-3/5 bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
                 <div class="p-4 border-b border-stone-100 bg-stone-50 flex justify-between items-center">
-                    <span class="font-black text-stone-400 uppercase text-xs tracking-widest">Reading Content</span>
-                    <span id="q-number-badge" class="px-4 py-1 bg-stone-900 text-white text-xs font-bold rounded-full">Q --</span>
+                    <span class="font-black text-stone-400 text-xs uppercase tracking-widest">Reading Content</span>
+                    <span id="q-badge" class="px-4 py-1 bg-stone-900 text-white text-xs font-bold rounded-full">Q --</span>
                 </div>
-                <div id="content-display" class="flex-grow p-6 md:p-12 overflow-y-auto custom-scrollbar bg-stone-50/20"></div>
+                <div id="passage-display" class="flex-grow p-8 md:p-12 overflow-y-auto custom-scrollbar bg-stone-50/10"></div>
             </div>
 
+            <!-- 右欄：答題區 -->
             <div class="w-full md:w-2/5 flex flex-col gap-4">
-                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-8 flex-grow flex flex-col">
+                <div class="bg-white rounded-3xl shadow-sm border border-stone-200 p-8 flex-grow flex flex-col">
                     <div class="mb-6">
-                        <span class="text-[10px] font-black uppercase text-amber-700 tracking-widest" id="q-type-label">PART --</span>
+                        <span id="q-part-label" class="text-[10px] font-black uppercase text-amber-700 tracking-widest">Part --</span>
                         <h3 class="text-xl font-black text-stone-900 mt-1">請選擇最佳選項</h3>
                     </div>
                     <div id="options-list" class="space-y-4 flex-grow overflow-y-auto custom-scrollbar pr-2"></div>
-                    <div class="mt-10 flex gap-3">
-                        <button id="prev-q" class="flex-1 py-4 px-4 rounded-2xl border border-stone-200 font-bold text-stone-400 hover:bg-stone-50 transition-all">上一題</button>
-                        <button id="next-q" class="flex-1 py-4 px-4 rounded-2xl bg-stone-900 text-white font-bold hover:bg-stone-800 transition-all shadow-md">下一題</button>
+                    <div class="mt-8 flex gap-3">
+                        <button onclick="navigate(-1)" id="prev-btn" class="flex-1 py-4 border border-stone-200 rounded-2xl font-bold text-stone-400 hover:bg-stone-50">上一題</button>
+                        <button onclick="navigate(1)" id="next-btn" class="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 shadow-lg">下一題</button>
                     </div>
                 </div>
-                <!-- 題號地圖 Navigator (修正 Selection_053) -->
-                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 flex flex-col">
-                    <div class="text-[10px] font-black text-stone-400 uppercase mb-4 tracking-widest">Question Navigator</div>
-                    <div class="q-map-grid custom-scrollbar overflow-y-auto max-h-48 pr-2" id="question-map"></div>
+                <!-- 導覽地圖 -->
+                <div class="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 flex flex-col">
+                    <div class="text-[10px] font-black text-stone-400 uppercase mb-3 tracking-widest">Navigation Map</div>
+                    <div class="q-map-grid overflow-y-auto max-h-48 pr-2 custom-scrollbar" id="q-map"></div>
                 </div>
             </div>
         </section>
 
-        <!-- Analysis Dashboard -->
-        <section id="analysis-dashboard" class="hidden w-full max-w-6xl space-y-8 fade-in pb-24">
-            <div class="bg-white rounded-[2rem] shadow-xl p-8 md:p-14 text-center">
-                <div class="flex justify-between items-center mb-12">
-                    <button onclick="window.location.reload()" class="px-6 py-2 text-xs font-black bg-stone-100 text-stone-500 rounded-full hover:bg-stone-200 flex items-center gap-1 transition-all uppercase">← Home</button>
-                    <h2 class="text-4xl font-black text-stone-900 tracking-tight">模擬考成績報告</h2>
-                    <div class="w-24"></div>
+        <!-- 結果分析儀表板 -->
+        <section id="analysis-dashboard" class="hidden w-full max-w-5xl space-y-8 fade-in pb-24">
+            <div class="bg-white rounded-[2.5rem] shadow-xl p-10 md:p-16 text-center border border-stone-100">
+                <div class="flex justify-between items-center mb-10">
+                    <button onclick="window.location.reload()" class="px-6 py-2 bg-stone-100 text-stone-500 rounded-full text-xs font-bold hover:bg-stone-200">← 返回首頁</button>
+                    <h2 class="text-3xl font-black text-stone-900">正式測驗分析</h2>
+                    <div class="w-20"></div>
                 </div>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-16">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
                     <div class="chart-container"><canvas id="radarChart"></canvas></div>
                     <div class="text-left space-y-6">
-                        <div class="p-10 bg-stone-900 text-white rounded-[2rem] relative overflow-hidden shadow-2xl">
-                            <div class="text-xs text-stone-500 font-black tracking-widest mb-2 uppercase opacity-80">Estimated Score</div>
-                            <div class="text-7xl font-black" id="estimated-score">--</div>
-                            <div class="mt-8 flex items-center text-teal-400 font-black text-sm uppercase tracking-wider">
-                                ⏱️ 實際作答時間：<span id="time-spent-display" class="ml-2">--</span>
+                        <div class="p-10 bg-stone-900 text-white rounded-[2rem] shadow-2xl relative overflow-hidden">
+                            <div class="text-xs text-stone-500 font-bold mb-2 tracking-widest uppercase">Reading Score</div>
+                            <div id="res-score" class="text-7xl font-black tracking-tighter">--</div>
+                            <div class="mt-8 text-teal-400 font-bold flex items-center gap-2">
+                                ⏱️ 實際用時：<span id="res-time">--</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-3 gap-4" id="part-score-summary"></div>
-                        <button id="save-full-result-btn" class="w-full py-5 bg-teal-700 text-white font-black rounded-2xl hover:bg-teal-800 transition-all shadow-lg flex items-center justify-center gap-2">
-                            <span>💾 儲存完整成績紀錄檔案 (.json)</span>
-                        </button>
+                        <div id="res-parts" class="grid grid-cols-3 gap-4"></div>
+                        <button onclick="exportResult()" class="w-full py-5 bg-teal-700 text-white font-black rounded-2xl hover:bg-teal-800 shadow-lg transition-all">💾 儲存本次結果檔案 (.json)</button>
                     </div>
                 </div>
 
                 <div class="text-left border-t border-stone-100 pt-16">
-                    <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-                        <h3 class="text-3xl font-black text-stone-900 flex items-center">
-                            <span class="w-10 h-10 bg-teal-800 text-white rounded-xl flex items-center justify-center mr-4 text-sm font-black">R</span>
-                            完整題詳解回顧
-                        </h3>
-                        <div class="flex bg-stone-100 p-1.5 rounded-2xl shadow-inner border border-stone-200">
-                             <button id="filter-all-btn" onclick="filterReview('all')" class="px-8 py-2.5 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm transition-all border border-stone-100">顯示全部</button>
-                             <button id="filter-wrong-btn" onclick="filterReview('wrong')" class="px-8 py-2.5 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all">只看錯題</button>
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-12 gap-4">
+                        <h3 class="text-3xl font-black">100 題完整解析</h3>
+                        <div class="flex bg-stone-100 p-1.5 rounded-2xl shadow-inner">
+                            <button id="f-all" onclick="filterReview('all')" class="px-8 py-2.5 text-xs font-bold rounded-xl bg-white text-stone-800 shadow-sm transition-all">顯示全部</button>
+                            <button id="f-wrong" onclick="filterReview('wrong')" class="px-8 py-2.5 text-xs font-bold rounded-xl text-stone-400 hover:text-stone-800 transition-all">只看錯題</button>
                         </div>
                     </div>
-                    <div id="review-list" class="space-y-10"></div>
+                    <div id="review-list" class="space-y-12"></div>
                 </div>
 
-                <button onclick="window.location.reload()" class="mt-20 px-16 py-6 bg-stone-900 text-white font-black rounded-[2rem] hover:bg-stone-800 transition-all shadow-2xl">返回首頁</button>
+                <button onclick="window.location.reload()" class="mt-20 px-16 py-6 bg-stone-900 text-white font-black rounded-[2rem] hover:bg-stone-800 shadow-2xl">Restart Challenge</button>
             </div>
         </section>
     </main>
 
-    <div id="toast" class="hidden fixed bottom-12 left-1/2 -translate-x-1/2 px-10 py-4 bg-stone-900 text-white rounded-full shadow-2xl z-[100] success-toast font-bold">操作成功！</div>
+    <div id="toast" class="hidden px-10 py-5 bg-stone-900 text-white rounded-full shadow-2xl z-[100] success-toast font-bold">操作成功！</div>
 </div>
 
 <script>
-    // --- 系統核心狀態 ---
-    let quizData = [], currentIdx = 0, userAnswers = [], timerSeconds = 75 * 60, timerInterval = null, startTime = null, timeTakenStr = "";
-    let isReviewMode = false;
+    // --- 核心變數 ---
+    let quizData = [], userAnswers = [], currentIdx = 0;
+    let timerInterval, startTime, timeStr = "", isReview = false;
 
     const dom = {
-        welcome: document.getElementById('welcome-screen'), 
-        qFileInput: document.getElementById('file-input-questions'), 
-        rFileInput: document.getElementById('file-input-results'),
-        quiz: document.getElementById('quiz-engine'), 
-        dashboard: document.getElementById('analysis-dashboard'), 
-        nav: document.getElementById('navbar'), 
-        content: document.getElementById('content-display'), 
-        options: document.getElementById('options-list'), 
-        qMap: document.getElementById('question-map'), 
-        timer: document.getElementById('timer-display'), 
-        reviewList: document.getElementById('review-list'), 
-        saveBtn: document.getElementById('save-full-result-btn'), 
-        toast: document.getElementById('toast'), 
-        timeDisplay: document.getElementById('time-spent-display'), 
-        totalCount: document.getElementById('total-count'),
+        welcome: document.getElementById('welcome-screen'),
+        engine: document.getElementById('quiz-engine'),
+        dashboard: document.getElementById('analysis-dashboard'),
+        navbar: document.getElementById('navbar'),
+        qMap: document.getElementById('q-map'),
+        reviewList: document.getElementById('review-list'),
+        toast: document.getElementById('toast'),
         ansCount: document.getElementById('ans-count'),
-        reviewIndicator: document.getElementById('review-mode-indicator'),
-        timerBox: document.getElementById('timer-box'),
-        partNav: document.getElementById('part-nav-btns')
+        totalCount: document.getElementById('total-count')
     };
-
-    function triggerQuestionLoad() { dom.qFileInput.click(); }
-    function triggerResultLoad() { dom.rFileInput.click(); }
 
     // --- 檔案處理 (修正 Selection_055) ---
-    dom.qFileInput.onchange = (e) => {
-        const file = e.target.files[0];
+    function handleFile(input, mode) {
+        const file = input.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = (e) => {
             try {
-                const data = JSON.parse(ev.target.result);
-                if (data.userAnswers) { alert('此為成績結果檔，請點選右側按鈕匯入。'); return; }
-                quizData = data;
-                isReviewMode = false;
-                startNewExam();
-            } catch (err) { alert('JSON 格式錯誤，請檢查題庫檔案內容。'); }
-        };
-        reader.readAsText(file);
-    };
-
-    dom.rFileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const result = JSON.parse(ev.target.result);
-                if (!result.quizData || !result.userAnswers) {
-                    alert('匯入失敗：此檔案不包含完整的題目或作答數據。');
-                    return;
+                const data = JSON.parse(e.target.result);
+                if (mode === 'test') {
+                    if (data.userAnswers) return alert('此為成績結果檔，請使用「匯入成績」功能。');
+                    quizData = data;
+                    isReview = false;
+                    startExam();
+                } else {
+                    if (!data.quizData || !data.userAnswers) return alert('數據不完整，無法進入複習模式。');
+                    quizData = data.quizData;
+                    userAnswers = data.userAnswers;
+                    timeStr = data.timeTaken || "N/A";
+                    isReview = true;
+                    showDashboard();
                 }
-                quizData = result.quizData;
-                userAnswers = result.userAnswers;
-                timeTakenStr = result.timeTaken || "N/A";
-                isReviewMode = true;
-                showDashboard();
-            } catch (err) {
-                // Selection_055 修正：避免此處因 UI 渲染錯誤跳入 catch
-                console.error("Import error:", err);
-                alert('匯入解析失敗，請確認檔案為正確的結果 JSON。');
+            } catch (err) { 
+                console.error(err);
+                alert('解析失敗，請確認檔案格式。'); 
             }
         };
         reader.readAsText(file);
-    };
+    }
 
-    // --- 測驗引擎流程 ---
-    function startNewExam() {
+    // --- 測驗引擎核心 ---
+    function startExam() {
         userAnswers = Array(quizData.length).fill(null);
         dom.totalCount.innerText = quizData.length;
         dom.ansCount.innerText = "0";
-        startTime = Date.now();
         dom.welcome.classList.add('hidden');
-        dom.quiz.classList.remove('hidden'); 
-        dom.nav.classList.remove('hidden');
-        renderQuestion(); 
-        renderMap(); 
+        dom.engine.classList.remove('hidden');
+        dom.navbar.classList.remove('hidden');
+        startTime = Date.now();
         startTimer();
+        renderQuestion();
     }
 
     function startTimer() {
+        let s = 75 * 60;
         timerInterval = setInterval(() => {
-            timerSeconds--;
-            const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60;
-            dom.timer.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            if (timerSeconds <= 0) finishExam();
+            s--;
+            let m = Math.floor(s/60);
+            document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+            if(s<=0) finishExam();
         }, 1000);
-    }
-
-    function jumpToPart(p) {
-        const idx = quizData.findIndex(q => q.part === p);
-        if (idx !== -1) { currentIdx = idx; renderQuestion(); renderMap(); }
     }
 
     function renderQuestion() {
         const q = quizData[currentIdx];
-        if (!q) return;
-
-        document.getElementById('q-number-badge').innerText = `Q${q.id || (currentIdx + 1)}`;
-        document.getElementById('q-type-label').innerText = `PART ${q.part}`;
-
+        document.getElementById('q-badge').innerText = `Q${currentIdx + 1}`;
+        document.getElementById('q-part-label').innerText = `Part ${q.part}`;
+        
+        const passageArea = document.getElementById('passage-display');
         if (q.part === 5) {
-            dom.content.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-bold text-center max-w-lg bg-white p-12 rounded-[2.5rem] border-4 border-teal-50 shadow-sm leading-relaxed">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 border-b-4 border-teal-700 px-6 mx-2">?</span>')}</div></div>`;
+            passageArea.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-bold text-center leading-relaxed bg-white p-12 rounded-[2.5rem] border-4 border-teal-50 shadow-sm">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 border-b-4 border-teal-700 px-4 mx-2">?</span>')}</div></div>`;
         } else {
-            dom.content.innerHTML = `<div class="passage-box shadow-sm ring-1 ring-stone-100"><div class="reading-content text-stone-700 text-lg">${q.passage || ''}</div></div><div class="p-8 bg-white rounded-3xl border-l-[10px] border-teal-700 shadow-md ring-1 ring-stone-100"><div class="text-2xl font-black text-stone-900 leading-snug">${q.question}</div></div>`;
+            // 修正：始終渲染文章內容
+            passageArea.innerHTML = `<div class="passage-box shadow-sm">${q.passage || ''}</div><div class="p-8 bg-white rounded-3xl border-l-[12px] border-teal-700 shadow-md ring-1 ring-stone-100"><div class="text-2xl font-black text-stone-900">${q.question}</div></div>`;
         }
 
-        dom.options.innerHTML = '';
+        const optsArea = document.getElementById('options-list');
+        optsArea.innerHTML = '';
         q.options.forEach((opt, i) => {
             const isSelected = userAnswers[currentIdx] === i;
             const btn = document.createElement('button');
-            btn.className = `w-full text-left p-6 rounded-2xl border-2 transition-all flex items-center group ${isSelected ? 'border-teal-700 bg-teal-50/50 shadow-md' : 'border-stone-100 bg-white hover:border-stone-300'}`;
-            btn.innerHTML = `<span class="w-12 h-12 rounded-xl border-2 flex items-center justify-center mr-6 font-black text-lg ${isSelected ? 'bg-teal-700 text-white border-teal-700' : 'text-stone-300 border-stone-200'}">${String.fromCharCode(65 + i)}</span><span class="font-bold text-lg">${opt}</span>`;
-            if (!isReviewMode) {
-                btn.onclick = () => { 
-                    userAnswers[currentIdx] = i; 
-                    renderQuestion(); 
-                    renderMap(); 
-                    dom.ansCount.innerText = userAnswers.filter(a => a !== null).length; 
-                };
-            }
-            dom.options.appendChild(btn);
+            btn.className = `w-full text-left p-6 rounded-2xl border-2 transition-all flex items-center group ${isSelected ? 'border-teal-700 bg-teal-50 shadow-sm' : 'border-stone-100 bg-white hover:border-stone-200'}`;
+            btn.innerHTML = `<span class="w-12 h-12 rounded-xl border-2 flex items-center justify-center mr-6 font-black text-lg ${isSelected ? 'bg-teal-700 text-white border-teal-700' : 'text-stone-300 border-stone-200'}">${String.fromCharCode(65+i)}</span><span class="font-bold text-lg">${opt}</span>`;
+            if(!isReview) btn.onclick = () => { userAnswers[currentIdx] = i; renderQuestion(); renderMap(); updateProgress(); };
+            optsArea.appendChild(btn);
         });
 
-        document.getElementById('prev-q').disabled = currentIdx === 0;
-        document.getElementById('next-q').innerText = currentIdx === quizData.length - 1 ? (isReviewMode ? "返回分析" : "完成並送出") : "下一題";
+        document.getElementById('next-btn').innerText = currentIdx === quizData.length - 1 ? (isReview ? "返回分析" : "結束交卷") : "下一題";
+        renderMap();
     }
 
-    // --- 地圖 Navigator (修復核心：確保匯入結果後正確顯示) ---
+    // 修復後的地圖邏輯 (Selection_052/053)
     function renderMap() {
         dom.qMap.innerHTML = '';
         quizData.forEach((_, i) => {
             const dot = document.createElement('div');
-            const isAnswered = userAnswers[i] !== null && userAnswers[i] !== undefined;
+            const isAns = userAnswers[i] !== null && userAnswers[i] !== undefined;
             const isCurrent = i === currentIdx;
             
-            // 狀態判斷與樣式套用
-            dot.className = `ans-dot ${isAnswered ? 'answered' : 'not-answered'} ${isCurrent ? 'current' : ''}`;
+            dot.className = `ans-dot ${isAns ? 'answered' : 'not-answered'} ${isCurrent ? 'current' : ''}`;
             dot.innerText = i + 1;
-            dot.onclick = () => { currentIdx = i; renderQuestion(); renderMap(); };
+            dot.onclick = () => { currentIdx = i; renderQuestion(); };
             dom.qMap.appendChild(dot);
         });
     }
 
-    document.getElementById('prev-q').onclick = () => { if(currentIdx > 0) { currentIdx--; renderQuestion(); renderMap(); } };
-    document.getElementById('next-q').onclick = () => { 
-        if(currentIdx < quizData.length - 1) { 
-            currentIdx++; renderQuestion(); renderMap(); 
-        } else { 
-            if(isReviewMode) showDashboard(); else confirmFinish(); 
-        } 
-    };
-    document.getElementById('submit-test-btn').onclick = confirmFinish;
+    function navigate(step) {
+        if(currentIdx + step >= 0 && currentIdx + step < quizData.length) {
+            currentIdx += step; renderQuestion();
+        } else if (currentIdx === quizData.length - 1 && step === 1) {
+            if(isReview) showDashboard(); else confirmFinish();
+        }
+    }
 
-    function confirmFinish() { if (confirm('確定要交卷並查看分析結果嗎？')) finishExam(); }
+    function jumpToPart(p) {
+        const idx = quizData.findIndex(q => q.part === p);
+        if(idx !== -1) { currentIdx = idx; renderQuestion(); }
+    }
+
+    function updateProgress() {
+        dom.ansCount.innerText = userAnswers.filter(a => a !== null).length;
+    }
+
+    // --- 分析報告儀表板 ---
+    function confirmFinish() { if(confirm('確定要結束測驗並觀看分析嗎？')) finishExam(); }
     
     function finishExam() {
         clearInterval(timerInterval);
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        timeTakenStr = `${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
+        const elapsed = Math.floor((Date.now() - startTime)/1000);
+        timeStr = `${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`;
         showDashboard();
     }
 
-    // --- 分析報告儀表板 (修正圖表 Crash) ---
     function showDashboard() {
         dom.welcome.classList.add('hidden');
-        dom.quiz.classList.add('hidden');
-        dom.nav.classList.remove('hidden');
+        dom.engine.classList.add('hidden');
+        dom.navbar.classList.remove('hidden');
         dom.dashboard.classList.remove('hidden');
         
-        if (isReviewMode) {
-            dom.timerBox.classList.add('hidden');
-            dom.partNav.classList.add('hidden');
-            dom.reviewIndicator.classList.remove('hidden');
-            document.getElementById('submit-test-btn').classList.add('hidden');
+        if(isReview) {
+            document.getElementById('timer-display').classList.add('hidden');
+            document.getElementById('nav-parts').classList.add('hidden');
+            document.getElementById('finish-btn').classList.add('hidden');
+            document.getElementById('review-tag').classList.remove('hidden');
             dom.totalCount.innerText = quizData.length;
             dom.ansCount.innerText = userAnswers.filter(a => a !== null).length;
         }
 
-        generateAnalytics();
-    }
-
-    function generateAnalytics() {
-        dom.timeDisplay.innerText = timeTakenStr;
-        const stats = [5, 6, 7].map(p => {
+        const stats = [5,6,7].map(p => {
             const qs = quizData.filter(q => q.part === p);
             const correct = qs.filter(q => userAnswers[quizData.indexOf(q)] === q.answer).length;
-            return { part: p, correct, total: qs.length, rate: qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0 };
+            return { p, rate: qs.length > 0 ? Math.round((correct/qs.length)*100) : 0, correct, total: qs.length };
         });
 
-        document.getElementById('part-score-summary').innerHTML = stats.map(s => `
-            <div class="p-6 bg-white rounded-3xl border border-stone-100 text-center shadow-sm">
-                <div class="text-[10px] text-stone-400 font-black mb-1 uppercase tracking-tighter">Part ${s.part}</div>
-                <div class="text-2xl font-black text-stone-800">${s.rate}%</div>
-                <div class="text-[10px] text-teal-600 font-bold mt-1 uppercase">${s.correct}/${s.total} Correct</div>
-            </div>
-        `).join('');
-
-        const totalCorrect = stats.reduce((acc, s) => acc + s.correct, 0);
-        document.getElementById('estimated-score').innerText = Math.round(((totalCorrect / quizData.length) * 495) / 5) * 5;
+        const totalCorrect = stats.reduce((a,b)=>a+b.correct,0);
+        document.getElementById('res-score').innerText = Math.round((totalCorrect/quizData.length)*495/5)*5;
+        document.getElementById('res-time').innerText = timeStr;
+        document.getElementById('res-parts').innerHTML = stats.map(s => `<div class="p-6 bg-white rounded-3xl border border-stone-100 text-center shadow-sm"><div class="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Part ${s.p}</div><div class="text-2xl font-black text-stone-800">${s.rate}%</div><div class="text-[10px] font-bold text-teal-600 uppercase mt-1">${s.correct}/${s.total} Correct</div></div>`).join('');
         
+        initChart(stats);
         renderReview('all');
-        initRadarChart(stats);
     }
 
-    function renderReview(filter = 'all') {
-        const allBtn = document.getElementById('filter-all-btn');
-        const wrongBtn = document.getElementById('filter-wrong-btn');
+    function renderReview(filter) {
+        const list = dom.reviewList;
+        list.innerHTML = '';
         
+        const allBtn = document.getElementById('f-all');
+        const wrongBtn = document.getElementById('f-wrong');
         if (filter === 'all') {
-            allBtn.className = "px-8 py-2.5 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm transition-all border border-stone-100";
-            wrongBtn.className = "px-8 py-2.5 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all";
+            allBtn.className = "px-8 py-2.5 text-xs font-bold rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100";
+            wrongBtn.className = "px-8 py-2.5 text-xs font-bold rounded-xl text-stone-400 hover:text-stone-800 transition-all";
         } else {
-            allBtn.className = "px-8 py-2.5 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all";
-            wrongBtn.className = "px-8 py-2.5 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm transition-all border border-stone-100";
+            allBtn.className = "px-8 py-2.5 text-xs font-bold rounded-xl text-stone-400 hover:text-stone-800 transition-all";
+            wrongBtn.className = "px-8 py-2.5 text-xs font-bold rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100";
         }
 
-        dom.reviewList.innerHTML = '';
         quizData.forEach((q, i) => {
             const isCorrect = userAnswers[i] === q.answer;
-            if (filter === 'wrong' && isCorrect) return;
-
-            const card = document.createElement('div');
-            card.className = `p-10 rounded-[2.5rem] border-2 transition-all fade-in ${isCorrect ? 'bg-white border-stone-100 shadow-sm' : 'bg-red-50/50 border-red-200'}`;
+            if(filter === 'wrong' && isCorrect) return;
             
-            let passageHtml = q.passage ? `<div class="mb-6 p-6 bg-stone-50 rounded-2xl text-sm italic border border-stone-100 overflow-y-auto max-h-60 custom-scrollbar shadow-inner leading-relaxed">${q.passage}</div>` : '';
-
+            const card = document.createElement('div');
+            card.className = `p-10 rounded-[3rem] border-2 transition-all fade-in shadow-sm ${isCorrect ? 'bg-white border-stone-100' : 'bg-red-50/30 border-red-200'}`;
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-8">
-                    <span class="px-5 py-1.5 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest">Q${q.id || (i+1)} · Part ${q.part}</span>
-                    <span class="text-xs font-black uppercase ${isCorrect ? 'text-teal-600' : 'text-red-600'}">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>
+                    <span class="px-5 py-1.5 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest">Q${i+1} · Part ${q.part}</span>
+                    <span class="text-xs font-black uppercase ${isCorrect ? 'text-teal-600' : 'text-red-600'}">${isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}</span>
                 </div>
-                ${passageHtml}
+                ${q.passage ? `<div class="mb-8 p-8 bg-stone-50 rounded-[2rem] text-sm italic border border-stone-100 leading-relaxed shadow-inner max-h-64 overflow-y-auto custom-scrollbar">${q.passage}</div>` : ''}
                 <div class="text-2xl font-black text-stone-800 mb-8 leading-tight">${q.question.replace(/_______|_____/g, '______')}</div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-10">
-                    <div class="p-5 bg-white rounded-2xl border-2 ${isCorrect ? 'border-stone-100' : 'border-red-100'} shadow-sm">
-                        <div class="text-[10px] text-stone-400 font-black uppercase mb-2 tracking-tighter">Your Choice</div>
-                        <div class="font-bold text-lg ${isCorrect ? 'text-stone-800' : 'text-red-600'}">${userAnswers[i] !== null ? String.fromCharCode(65 + userAnswers[i]) + '. ' + q.options[userAnswers[i]] : 'SKIPPED'}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                    <div class="p-6 bg-white rounded-2xl border-2 ${isCorrect ? 'border-stone-50' : 'border-red-100'} shadow-sm">
+                        <div class="text-[10px] text-stone-400 font-black uppercase mb-2">Your Answer</div>
+                        <div class="font-bold text-lg ${isCorrect ? 'text-stone-800' : 'text-red-600'}">${userAnswers[i] !== null ? String.fromCharCode(65+userAnswers[i]) + '. ' + q.options[userAnswers[i]] : 'SKIPPED'}</div>
                     </div>
-                    <div class="p-5 bg-white rounded-2xl border-2 border-teal-100 shadow-sm">
-                        <div class="text-[10px] text-teal-600 font-black uppercase mb-2 tracking-tighter">Correct Answer</div>
-                        <div class="font-bold text-teal-700 text-lg">${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}</div>
+                    <div class="p-6 bg-white rounded-2xl border-2 border-teal-100 shadow-sm">
+                        <div class="text-[10px] text-teal-600 font-black uppercase mb-2">Correct Answer</div>
+                        <div class="font-bold text-teal-700 text-lg">${String.fromCharCode(65+q.answer)}. ${q.options[q.answer]}</div>
                     </div>
                 </div>
                 <div class="p-8 bg-white rounded-3xl border border-stone-100 shadow-inner">
-                    <div class="font-black text-stone-400 text-[10px] uppercase mb-3 tracking-widest">Experts' Analysis</div>
-                    <div class="text-stone-600 leading-relaxed text-base">${q.explanation || 'No explanation provided.'}</div>
+                    <div class="font-black text-stone-400 text-[10px] uppercase mb-2 tracking-widest">Experts' Analysis</div>
+                    <div class="text-stone-600 leading-relaxed text-base">${q.explanation || '尚無解析。'}</div>
                 </div>
             `;
-            dom.reviewList.appendChild(card);
+            list.appendChild(card);
+        });
+
+        if (list.innerHTML === '') {
+            list.innerHTML = '<div class="py-24 text-center text-stone-400 font-black italic opacity-40 uppercase tracking-widest">No matching questions.</div>';
+        }
+    }
+
+    function initChart(stats) {
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        if (window.radarInstance instanceof Chart) window.radarInstance.destroy();
+        window.radarInstance = new Chart(ctx, {
+            type: 'radar',
+            data: { labels: ['Part 5', 'Part 6', 'Part 7'], datasets: [{ data: stats.map(s => s.rate), backgroundColor: 'rgba(13, 148, 136, 0.1)', borderColor: '#0d9488', borderWidth: 4, pointRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
         });
     }
 
-    function filterReview(type) { renderReview(type); }
+    function exportResult() {
+        const blob = new Blob([JSON.stringify({ quizData, userAnswers, timeTaken: timeStr }, null, 2)], { type: "application/json" });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `toeic_report_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        showToast('分析報告已成功匯出至電腦！');
+    }
 
-    dom.saveBtn.onclick = () => {
-        const fullResult = { quizData, userAnswers, timeTaken: timeTakenStr, savedAt: new Date().toLocaleString(), score: document.getElementById('estimated-score').innerText };
-        const blob = new Blob([JSON.stringify(fullResult, null, 2)], { type: "application/json" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `toeic_report_${new Date().toISOString().slice(0,10)}.json`;
-        link.click();
-        showToast('結果檔案已匯出！');
-    };
+    function filterReview(f) { renderReview(f); }
 
     function showToast(msg) {
         dom.toast.innerText = msg;
@@ -457,54 +410,22 @@
         setTimeout(() => dom.toast.classList.add('hidden'), 3000);
     }
 
-    // --- 圖表邏輯 (修正毀損問題) ---
-    function initRadarChart(stats) {
-        const ctx = document.getElementById('radarChart').getContext('2d');
-        // 安全銷毀舊圖表
-        if (window.radarChartInstance instanceof Chart) {
-            window.radarChartInstance.destroy();
-        }
-        
-        window.radarChartInstance = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: ['Part 5', 'Part 6', 'Part 7'],
-                datasets: [{
-                    label: 'Weight',
-                    data: stats.map(s => s.rate),
-                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
-                    borderColor: '#0d9488',
-                    borderWidth: 4,
-                    pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } },
-                plugins: { legend: { display: false } }
+    // 自動嘗試加載邏輯
+    window.onload = async () => {
+        try {
+            const res = await fetch('./quiz_data.json');
+            if (res.ok) {
+                quizData = await res.json();
+                document.getElementById('auto-load-hint').innerHTML = '<span class="text-teal-600 font-bold uppercase animate-pulse">✓ quiz_data.json detected</span>';
             }
-        });
-    }
-
-    window.onload = () => {
-        // 自動嘗試讀取
-        (async () => {
-            try {
-                const res = await fetch('./quiz_data.json');
-                if (res.ok) {
-                    quizData = await res.json();
-                    const hint = document.createElement('p');
-                    hint.className = "text-[10px] text-teal-600 mt-2 font-black uppercase";
-                    hint.innerText = "✓ quiz_data.json auto-detected";
-                    document.getElementById('start-btn').after(hint);
-                }
-            } catch (e) {}
-        })();
+        } catch (e) {}
+        document.getElementById('welcome-content').classList.remove('hidden');
+        document.getElementById('loading-indicator').classList.add('hidden');
     };
 
     function getPartTitle(p) { return { 5: "短句填空", 6: "段落填空", 7: "閱讀理解" }[p] || "Reading"; }
 </script>
 </body>
 </html>
-```
+```eof
+
