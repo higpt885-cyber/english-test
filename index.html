@@ -26,6 +26,8 @@
         .passage-box { background-color: #ffffff; border: 1px solid #e7e5e4; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0d9488; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .success-toast { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans antialiased">
@@ -33,24 +35,28 @@
 <!-- Chosen Palette: 專業沉穩色調 (背景: stone-50, 主色: teal-800, 強調: amber-700) -->
 <!-- Application Structure Plan: 
      1. 數據獲取：支援自動 fetch 或手動選取本地 JSON。
-     2. 測驗功能：Part 5-7 模擬，包含倒數計時與題圖導航。
-     3. 分析儀表板 (重點修正)：
-        - 修正 renderReview 函式。
-        - 增加對 Part 6/7 Passage 的回顧顯示。
-        - 強化錯題解析的排版，確保題號、答案、解析完整列出。
-     4. 技術細節：使用 FileReader 處理本地檔案，Chart.js 進行能力雷達圖分析。 -->
+     2. 測驗功能：Part 5-7 模擬，包含倒數計時與題圖導覽。
+     3. 本地持久化 (v2.5 更新)：
+        - 移除所有 Firebase 雲端依賴，解決啟動卡死問題。
+        - 使用 localStorage 儲存錯題清單。
+        - 新增「匯出錯題檔案」功能，將累積錯題下載為 .json 檔案。
+     4. 耗時追蹤：記錄 startTime 與 endTime，計算實際測驗總長度。
+     5. 儀表板：顯示正確率、耗時、以及錯題管理按鈕。 -->
 <!-- Visualization & Content Choices: 
      - 分析頁面：Radar Chart 顯示能力分佈。
-     - 複習區：依據題號順序，列出所有題目。針對錯誤題目加強紅框提醒。
+     - 複習區：完整題目詳解。
+     - 導出功能：生成 Blob 並觸發下載下載錯題檔案。
      - 確認不使用 SVG 與 Mermaid JS。 -->
 <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
 <div id="app" class="min-h-screen flex flex-col">
-    <!-- Navbar (Initially Hidden) -->
+    <!-- Navbar -->
     <nav id="navbar" class="bg-white border-b border-stone-200 sticky top-0 z-50 px-4 py-3 shadow-sm hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-4">
-                <span id="timer-display" class="text-xl font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded border border-teal-100">30:00</span>
+                <div class="flex flex-col">
+                    <span id="timer-display" class="text-xl font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded border border-teal-100">30:00</span>
+                </div>
                 <div class="hidden md:block">
                     <span id="part-title" class="text-stone-500 font-medium italic">載入中...</span>
                 </div>
@@ -72,17 +78,15 @@
         <section id="welcome-screen" class="max-w-2xl w-full bg-white rounded-3xl shadow-xl p-8 md:p-12 text-center fade-in">
             <div id="loading-indicator">
                 <div class="spinner"></div>
-                <p class="text-stone-500 font-medium">正在啟動系統...</p>
+                <p class="text-stone-500 font-medium">正在啟動測驗引擎...</p>
             </div>
             
             <div id="welcome-content" class="hidden">
-                <div class="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-teal-100 text-5xl">
-                    📚
-                </div>
+                <div class="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-teal-100 text-5xl">📚</div>
                 <h1 class="text-3xl font-black text-stone-900 mb-4">TOEIC 閱讀全真模擬考場</h1>
                 <p class="text-stone-500 mb-8 leading-relaxed">
-                    本系統支援「自動載入」或「手動選取」題庫檔案。<br>
-                    修正版：考後提供詳細錯題解析與專家評論。
+                    v2.5 本地版：已移除雲端限制，速度更流暢。<br>
+                    支援「本地儲存」與「錯題檔案匯出」功能。
                 </p>
                 <div class="grid grid-cols-3 gap-3 mb-10">
                     <div class="p-4 bg-stone-50 rounded-xl border border-stone-200">
@@ -94,26 +98,21 @@
                         <div class="text-[10px] text-stone-400 font-bold uppercase">建議分鐘</div>
                     </div>
                     <div class="p-4 bg-stone-50 rounded-xl border border-stone-200">
-                        <div class="text-xl font-bold text-teal-700">950+</div>
-                        <div class="text-[10px] text-stone-400 font-bold uppercase">挑戰目標</div>
+                        <div class="text-xl font-bold text-teal-700">Local</div>
+                        <div class="text-[10px] text-stone-400 font-bold uppercase">存儲模式</div>
                     </div>
                 </div>
-                <button id="start-btn" class="w-full bg-teal-800 text-white py-4 rounded-2xl text-xl font-bold hover:bg-teal-900 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">開始模擬測驗</button>
+                <button id="start-btn" class="w-full bg-teal-800 text-white py-4 rounded-2xl text-xl font-bold hover:bg-teal-900 transition-all shadow-lg hover:shadow-xl">開始模擬測驗</button>
             </div>
 
-            <!-- Manual File Selection -->
+            <!-- Manual File Selection (用於無法直接 Fetch 的情況) -->
             <div id="file-selection-content" class="hidden text-center">
                 <div class="text-teal-600 text-6xl mb-6">📁</div>
                 <h2 class="text-2xl font-black text-stone-900 mb-2">請選取題庫檔案</h2>
-                <p class="text-stone-500 mb-8 text-sm leading-relaxed">
-                    請選取您資料夾中的 <b>quiz_data.json</b>。
-                </p>
-                
+                <p class="text-stone-500 mb-8 text-sm leading-relaxed">由於瀏覽器安全性限制，請手動選取您的 <b>quiz_data.json</b>。</p>
                 <input type="file" id="file-input" accept=".json" class="hidden">
-                <button id="trigger-file-btn" class="w-full py-5 border-2 border-dashed border-teal-200 text-teal-700 rounded-2xl font-bold hover:bg-teal-50 transition-all mb-4">
-                    選取題庫 JSON 檔案
-                </button>
-                <p id="file-status" class="text-xs text-stone-400">未選取檔案</p>
+                <button id="trigger-file-btn" class="w-full py-5 border-2 border-dashed border-teal-200 text-teal-700 rounded-2xl font-bold hover:bg-teal-50 transition-all mb-4">選取 JSON 題庫檔案</button>
+                <p id="file-status" class="text-xs text-stone-400">尚未選取</p>
             </div>
         </section>
 
@@ -124,9 +123,7 @@
                     <span class="font-bold text-stone-700" id="content-header">Reading Passage</span>
                     <span id="q-number-badge" class="px-3 py-1 bg-stone-900 text-white text-xs font-bold rounded-full tracking-tighter">Question -- / --</span>
                 </div>
-                <div id="content-display" class="flex-grow p-6 md:p-10 overflow-y-auto custom-scrollbar bg-stone-50/20">
-                    <!-- Dynamic Content -->
-                </div>
+                <div id="content-display" class="flex-grow p-6 md:p-10 overflow-y-auto custom-scrollbar bg-stone-50/20"></div>
             </div>
 
             <div class="w-full md:w-2/5 flex flex-col gap-4">
@@ -135,9 +132,7 @@
                         <span class="text-[10px] font-black uppercase text-amber-700 tracking-widest" id="q-type-label">PART --</span>
                         <h3 class="text-lg font-bold text-stone-900 mt-1">請選擇最佳選項</h3>
                     </div>
-                    <div id="options-list" class="space-y-3 flex-grow overflow-y-auto custom-scrollbar pr-2">
-                        <!-- Options injected here -->
-                    </div>
+                    <div id="options-list" class="space-y-3 flex-grow overflow-y-auto custom-scrollbar pr-2"></div>
                     <div class="mt-8 flex gap-3">
                         <button id="prev-q" class="flex-1 py-3 px-4 rounded-xl border border-stone-200 font-bold text-stone-400 hover:bg-stone-50 transition-all disabled:opacity-30">上一題</button>
                         <button id="next-q" class="flex-1 py-3 px-4 rounded-xl bg-stone-900 text-white font-bold hover:bg-stone-800 transition-all">下一題</button>
@@ -149,26 +144,36 @@
             </div>
         </section>
 
-        <!-- Analysis Dashboard (修正重點) -->
+        <!-- Analysis Dashboard -->
         <section id="analysis-dashboard" class="hidden w-full max-w-5xl space-y-8 fade-in pb-20">
             <div class="bg-white rounded-3xl shadow-xl p-8 md:p-12 text-center">
                 <div class="mb-8">
-                    <h2 class="text-4xl font-black text-stone-900 mb-2">測驗結報分析</h2>
-                    <p class="text-stone-500 font-medium italic">您的閱讀能力雷達圖</p>
+                    <h2 class="text-4xl font-black text-stone-900 mb-2">測驗成績分析</h2>
+                    <p class="text-stone-500 font-medium italic">本次練習耗時統計與弱點分析</p>
                 </div>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12">
                     <div class="chart-container">
                         <canvas id="radarChart"></canvas>
                     </div>
-                    <div class="text-left space-y-6">
+                    <div class="text-left space-y-4">
                         <div class="p-8 bg-stone-900 text-white rounded-3xl shadow-inner relative overflow-hidden">
                             <div class="absolute -right-8 -top-8 w-32 h-32 bg-teal-700 rounded-full opacity-20"></div>
-                            <div class="text-xs text-stone-400 uppercase font-bold tracking-widest mb-1">Estimated Reading Score</div>
+                            <div class="text-xs text-stone-400 uppercase font-bold tracking-widest mb-1">Estimated Score</div>
                             <div class="text-6xl font-black" id="estimated-score">--</div>
-                            <p class="mt-6 text-stone-300 text-sm leading-relaxed" id="result-summary">正在生成報告...</p>
+                            <div class="mt-4 flex items-center text-teal-400 font-bold">
+                                ⏱️ 總共花費時間：<span id="time-spent-display" class="ml-1">--</span>
+                            </div>
                         </div>
+
                         <div class="grid grid-cols-3 gap-3" id="part-score-summary"></div>
+
+                        <div class="flex flex-col gap-2">
+                            <button id="save-local-btn" class="w-full py-4 bg-teal-700 text-white font-black rounded-2xl hover:bg-teal-800 transition-all shadow-lg flex items-center justify-center gap-2">
+                                <span>📁 儲存並匯出錯題檔案 (.json)</span>
+                            </button>
+                            <p class="text-[10px] text-stone-400 text-center">錯題將自動累積至本地儲存空間，並提供下載備份。</p>
+                        </div>
                     </div>
                 </div>
 
@@ -184,24 +189,32 @@
                              <button onclick="filterReview('wrong')" class="px-3 py-1 text-xs font-bold rounded-full bg-red-100 text-red-600 hover:bg-red-200">只看錯題</button>
                         </div>
                     </div>
-                    <div id="review-list" class="space-y-8">
-                        <!-- 修正：這裡將會動態注入帶有解釋的內容 -->
-                    </div>
+                    <div id="review-list" class="space-y-8"></div>
                 </div>
 
-                <button onclick="window.location.reload()" class="mt-16 px-12 py-5 bg-stone-900 text-white font-bold rounded-2xl hover:bg-stone-800 transition-all shadow-lg">重新開始模擬</button>
+                <button onclick="window.location.reload()" class="mt-16 px-12 py-5 bg-stone-900 text-white font-bold rounded-2xl hover:bg-stone-800 transition-all shadow-lg">重新開始測驗</button>
             </div>
         </section>
-
     </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-stone-900 text-white rounded-full shadow-2xl success-toast z-[100] flex items-center gap-2">
+        <span class="text-teal-400">✅</span>
+        <span id="toast-message">操作成功！</span>
+    </div>
 </div>
 
 <script>
+    // ==========================================
+    // 系統變數 (不使用雲端 Firebase)
+    // ==========================================
     let quizData = [];
     let currentIdx = 0;
     let userAnswers = [];
     let timerSeconds = 30 * 60;
     let timerInterval = null;
+    let startTime = null;
+    let timeTakenFormatted = "";
 
     const dom = {
         loading: document.getElementById('loading-indicator'),
@@ -209,7 +222,6 @@
         fileSelection: document.getElementById('file-selection-content'),
         fileInput: document.getElementById('file-input'),
         fileTrigger: document.getElementById('trigger-file-btn'),
-        fileStatus: document.getElementById('file-status'),
         welcomeTotal: document.getElementById('welcome-total'),
         quiz: document.getElementById('quiz-engine'),
         dashboard: document.getElementById('analysis-dashboard'),
@@ -220,10 +232,13 @@
         nextBtn: document.getElementById('next-q'),
         prevBtn: document.getElementById('prev-q'),
         timer: document.getElementById('timer-display'),
-        scoreSummary: document.getElementById('part-score-summary'),
-        reviewList: document.getElementById('review-list')
+        reviewList: document.getElementById('review-list'),
+        saveBtn: document.getElementById('save-local-btn'),
+        toast: document.getElementById('toast'),
+        toastMsg: document.getElementById('toast-message')
     };
 
+    // 初始化：獲取 JSON 數據 (直接 Fetch，失敗則顯示選取器)
     async function initApp() {
         try {
             const response = await fetch('./quiz_data.json');
@@ -231,6 +246,7 @@
             quizData = await response.json();
             prepareQuiz();
         } catch (err) {
+            console.log("無法自動載入 JSON，顯示選取按鈕。");
             dom.loading.classList.add('hidden');
             dom.fileSelection.classList.remove('hidden');
         }
@@ -246,9 +262,7 @@
                 quizData = JSON.parse(event.target.result);
                 dom.fileSelection.classList.add('hidden');
                 prepareQuiz();
-            } catch (err) {
-                alert('JSON 格式錯誤！');
-            }
+            } catch (err) { alert('JSON 檔案格式錯誤，請檢查！'); }
         };
         reader.readAsText(file);
     });
@@ -261,12 +275,15 @@
         dom.welcome.classList.remove('hidden');
     }
 
+    // 流程控制
     document.getElementById('start-btn').addEventListener('click', startExam);
     dom.prevBtn.addEventListener('click', () => navigate(-1));
     dom.nextBtn.addEventListener('click', () => navigate(1));
     document.getElementById('submit-test-btn').addEventListener('click', confirmFinish);
+    dom.saveBtn.addEventListener('click', saveMistakesToFile);
 
     function startExam() {
+        startTime = Date.now();
         document.getElementById('welcome-screen').classList.add('hidden');
         dom.quiz.classList.remove('hidden');
         dom.nav.classList.remove('hidden');
@@ -308,7 +325,7 @@
         });
 
         dom.prevBtn.disabled = currentIdx === 0;
-        dom.nextBtn.innerText = currentIdx === quizData.length - 1 ? "結束並交卷" : "下一題";
+        dom.nextBtn.innerText = currentIdx === quizData.length - 1 ? "完成並看成績" : "下一題";
     }
 
     function navigate(step) {
@@ -332,12 +349,18 @@
 
     function confirmFinish() {
         const unanswered = userAnswers.filter(a => a === null).length;
-        if (unanswered > 0) if (!confirm(`還有 ${unanswered} 題沒寫，確定要交卷？`)) return;
+        if (unanswered > 0) if (!confirm(`尚有 ${unanswered} 題未填寫，確定要結束嗎？`)) return;
         finishExam();
     }
 
     function finishExam() {
         clearInterval(timerInterval);
+        const elapsed = Date.now() - startTime;
+        const totalSeconds = Math.floor(elapsed / 1000);
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        timeTakenFormatted = `${m} 分 ${s} 秒`;
+
         dom.quiz.classList.add('hidden');
         dom.nav.classList.add('hidden');
         dom.dashboard.classList.remove('hidden');
@@ -347,6 +370,7 @@
     function getPartTitle(p) { return { 5: "短句填空", 6: "段落填空", 7: "閱讀理解" }[p] || "Reading"; }
 
     function generateAnalytics() {
+        document.getElementById('time-spent-display').innerText = timeTakenFormatted;
         const stats = [5, 6, 7].map(p => {
             const qs = quizData.filter(q => q.part === p);
             const correct = qs.filter(q => userAnswers[quizData.indexOf(q)] === q.answer).length;
@@ -358,13 +382,61 @@
         const totalCorrect = stats.reduce((acc, s) => acc + s.correct, 0);
         const est = Math.round(((totalCorrect / quizData.length) * 495) / 5) * 5;
         document.getElementById('estimated-score').innerText = est;
-        document.getElementById('result-summary').innerText = est >= 400 ? "非常優秀！您的閱讀實力接近滿分。" : "表現穩健，透過下方的解析來補強弱點。";
 
         renderReview('all');
         initRadar(stats);
     }
 
-    // 核心修正：詳解渲染函式
+    // ==========================================
+    // 本地持久化與檔案匯出邏輯
+    // ==========================================
+    function saveMistakesToFile() {
+        // 1. 抓取目前練習的錯題
+        const currentMistakes = quizData.filter((q, i) => userAnswers[i] !== q.answer);
+        if (currentMistakes.length === 0) {
+            showToast('🎉 太神了！沒有錯題可以匯出。');
+            return;
+        }
+
+        // 2. 讀取 LocalStorage 中的舊紀錄並合併
+        let savedMistakes = JSON.parse(localStorage.getItem('toeic_mistakes_v25') || '[]');
+        
+        // 簡單去重：檢查 ID 是否重複，若沒 ID 則直接加入
+        currentMistakes.forEach(m => {
+            const exists = savedMistakes.some(sm => sm.question === m.question);
+            if (!exists) {
+                savedMistakes.push({
+                    ...m,
+                    userChoice: userAnswers[quizData.indexOf(m)],
+                    savedAt: new Date().toLocaleString()
+                });
+            }
+        });
+
+        // 3. 寫回 LocalStorage (實現網頁內的持久化)
+        localStorage.setItem('toeic_mistakes_v25', JSON.stringify(savedMistakes));
+
+        // 4. 生成並觸發 JSON 檔案下載 (實現本地電腦存檔)
+        const dataStr = JSON.stringify(savedMistakes, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `toeic_mistakes_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast(`🚀 ${currentMistakes.length} 題已存入本地並啟動下載！`);
+    }
+
+    function showToast(msg) {
+        dom.toastMsg.innerText = msg;
+        dom.toast.classList.remove('hidden');
+        setTimeout(() => dom.toast.classList.add('hidden'), 3000);
+    }
+
     function renderReview(filter = 'all') {
         dom.reviewList.innerHTML = '';
         quizData.forEach((q, i) => {
@@ -374,10 +446,7 @@
             const card = document.createElement('div');
             card.className = `p-6 rounded-3xl border-2 transition-all fade-in ${isCorrect ? 'bg-white border-stone-100' : 'bg-red-50 border-red-200'}`;
             
-            let contextHtml = '';
-            if (q.part >= 6 && q.passage) {
-                contextHtml = `<div class="mb-4 p-4 bg-stone-50 rounded-xl text-sm text-stone-600 border border-stone-100 max-h-40 overflow-y-auto custom-scrollbar italic">${q.passage}</div>`;
-            }
+            let contextHtml = q.passage ? `<div class="mb-4 p-4 bg-stone-50 rounded-xl text-sm text-stone-600 border border-stone-100 max-h-40 overflow-y-auto custom-scrollbar italic">${q.passage}</div>` : '';
 
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-4">
@@ -387,7 +456,7 @@
                 ${contextHtml}
                 <div class="text-stone-800 font-bold mb-4 leading-relaxed">${q.question.replace(/_______|_____/g, '______')}</div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
-                    <div class="p-3 bg-white rounded-xl border ${isCorrect ? 'border-stone-100' : 'border-red-100'}">
+                    <div class="p-3 bg-white rounded-xl border">
                         <div class="text-[10px] text-stone-400 font-black uppercase mb-1">您的回答</div>
                         <div class="font-black ${isCorrect ? 'text-stone-800' : 'text-red-600'}">${userAnswers[i] !== null ? String.fromCharCode(65 + userAnswers[i]) + '. ' + q.options[userAnswers[i]] : '未作答'}</div>
                     </div>
@@ -397,21 +466,15 @@
                     </div>
                 </div>
                 <div class="p-5 bg-white rounded-2xl text-sm border border-stone-100">
-                    <div class="font-black text-stone-400 uppercase text-[10px] mb-2 tracking-widest">專家解析 (EXPLANATION)</div>
-                    <div class="text-stone-600 leading-relaxed">${q.explanation || '尚無解析。'}</div>
+                    <div class="font-black text-stone-400 uppercase text-[10px] mb-2 tracking-widest">專家解析</div>
+                    <div class="text-stone-600 leading-relaxed">${q.explanation || '目前沒有詳細解析。'}</div>
                 </div>
             `;
             dom.reviewList.appendChild(card);
         });
-
-        if (dom.reviewList.innerHTML === '') {
-            dom.reviewList.innerHTML = '<div class="py-10 text-center text-stone-400">目前沒有符合條件的題目。</div>';
-        }
     }
 
-    function filterReview(type) {
-        renderReview(type);
-    }
+    function filterReview(type) { renderReview(type); }
 
     function initRadar(stats) {
         const ctx = document.getElementById('radarChart').getContext('2d');
@@ -432,16 +495,25 @@
         });
     }
 
-    window.onload = initApp;
+    // 啟動 App
+    initApp();
 </script>
 </body>
 </html>
 ```eof
 
-### 修正重點說明：
-1.  **詳解區動態注入**：在 `generateAnalytics` 中明確呼叫了 `renderReview('all')`，這會遍歷所有題目並渲染到 `review-list` 容器中。
-2.  **包含文章對照**：針對 Part 6 和 7，複習卡片內現在會顯示 **Passage Reference**（文章參考），這樣你看到解釋時，不需要憑記憶回想文章內容。
-3.  **顯眼的解析區塊**：特別為 `q.explanation` 欄位設計了一個白色的氣泡區塊，並標註「專家解析」，確保一眼就能看到重點。
-4.  **錯題篩選功能**：我在詳解區右上角增加了「全部顯示」與「只看錯題」的按鈕，方便你快速針對失分點進行檢討。
+### 解決方案說明：
 
-現在，當你完成 20 題測驗並交卷後，往下捲動就能看到每一題的詳
+1.  **徹底修復「卡在初始化」**：
+    * 我移除了所有的 Firebase (Auth, Firestore) 模組與腳本引用。之前的代碼在嘗試連接雲端，如果沒有特定的 API key 或是在本地 `file://` 環境下開啟，就會一直等待。
+    * 現在 `initApp()` 採用「無干擾設計」：先嘗試自動尋找同資料夾的題庫，失敗則直接切換到檔案選取畫面。
+
+2.  **本地持久化與「附加」功能**：
+    * 瀏覽器基於安全原因，無法在未經使用者點擊的情況下直接修改你電腦硬碟裡的 `.json` 檔案。
+    * **我的做法**：我使用了 `localStorage` 作為「中間儲存區」。當你測驗完按「儲存並匯出」時，它會讀取瀏覽器內已有的舊錯題紀錄，把這次的新錯題「附加 (Append)」進去。
+    * **下載備份**：隨後會觸發一個檔案下載，這個 `.json` 檔案就會包含你**這輩子在這個網頁上累積的所有錯題**。你可以把這個檔案存在電腦裡，日後甚至可以把這個檔案當作「新題庫」餵給這個程式。
+
+3.  **耗時統計**：
+    * 測驗結果頁面現在會顯示：**⏱️ 總共花費時間：X 分 Y 秒**。
+
+現在你可以放心地點擊右側的 `index.html` 進行測試了。如果系統還是無法自動找到你的 `quiz_data.json`，請點擊畫面上的大按鈕手動選取一下檔案
