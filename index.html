@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC 多益全真閱讀模擬考場 v3.14</title>
+    <title>TOEIC 多益全真閱讀模擬考場 v3.15</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入官方穩定版 YAML 解析器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <style>
         .chart-container { position: relative; width: 100%; max-width: 600px; margin: auto; height: 300px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
@@ -17,24 +19,31 @@
         .reading-content { line-height: 1.8; font-size: 1.1rem; white-space: pre-wrap; }
         .passage-box { background-color: #ffffff; border: 1px solid #e7e5e4; border-radius: 1.5rem; padding: 2.5rem; margin-bottom: 1.5rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
         .q-map-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .ans-dot { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 2px solid #f3f4f6; transition: all 0.2s; }
+        .ans-dot { 
+            aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; 
+            font-size: 12px; font-weight: 800; border-radius: 10px; cursor: pointer; 
+            transition: all 0.2s ease; border: 2px solid #f3f4f6;
+        }
         .ans-dot.not-answered { background-color: #ffffff; color: #d1d5db; }
         .ans-dot.answered { background-color: #0d9488 !important; color: #ffffff !important; border-color: #0d9488 !important; }
-        .ans-dot.current { border-color: #3b82f6 !important; border-width: 3px !important; transform: scale(1.05); }
+        .ans-dot.current { border-color: #3b82f6 !important; border-width: 3px !important; transform: scale(1.05); z-index: 10; }
         .success-toast { animation: slideUp 0.3s ease-out; position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); }
         @keyframes slideUp { from { transform: translateY(100%) translateX(-50%); opacity: 0; } to { transform: translateY(0) translateX(-50%); opacity: 1; } }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans antialiased">
+
 <div id="app" class="min-h-screen flex flex-col">
+    <!-- 頂部導航列 -->
     <nav id="navbar" class="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 py-4 shadow-sm hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-6">
+                <!-- 初始顯示 20 分鐘計時 -->
                 <span id="timer-display" class="text-xl font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded border border-teal-100">20:00</span>
                 <div class="hidden md:flex gap-2" id="nav-parts">
-                    <button onclick="jumpToPart(5)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100">Part 5</button>
-                    <button onclick="jumpToPart(6)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100">Part 6</button>
-                    <button onclick="jumpToPart(7)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100">Part 7</button>
+                    <button onclick="jumpToPart(5)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 5</button>
+                    <button onclick="jumpToPart(6)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 6</button>
+                    <button onclick="jumpToPart(7)" class="px-4 py-1 text-xs font-bold border border-stone-200 rounded-full hover:bg-stone-100 transition-colors">Part 7</button>
                 </div>
                 <span id="review-tag" class="hidden px-4 py-1 bg-amber-50 text-amber-700 text-xs font-black rounded-full border border-amber-100 uppercase tracking-widest">Review Mode</span>
             </div>
@@ -43,162 +52,367 @@
                     <div class="text-[10px] text-stone-400 font-black uppercase">Progress</div>
                     <div class="text-sm font-bold text-teal-700"><span id="ans-count">0</span> / <span id="total-count">0</span></div>
                 </div>
-                <button id="finish-btn" onclick="confirmFinish()" class="bg-amber-700 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-amber-800 shadow-md">結束並交卷</button>
+                <button id="finish-btn" onclick="confirmFinish()" class="bg-amber-700 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-amber-800 shadow-md transition-all">結束並交卷</button>
             </div>
         </div>
     </nav>
+
     <main class="flex-grow flex flex-col items-center justify-center p-4">
+        <!-- 歡迎與選取畫面 -->
         <section id="welcome-screen" class="max-w-6xl w-full bg-white rounded-[2.5rem] shadow-2xl p-10 md:p-16 text-center border border-stone-100 fade-in">
             <div id="welcome-content">
                 <div class="text-6xl mb-6">🎯</div>
                 <h1 class="text-4xl font-black text-stone-900 mb-2 tracking-tight">TOEIC 智慧 YAML 考場</h1>
-                <p class="text-stone-500 mb-12 text-lg">智慧辨識自癒引擎 v3.14 (20 分鐘精練版)</p>
+                <p class="text-stone-500 mb-12 text-lg">智慧辨識自癒引擎 v3.15 (手機鍵盤優化版)</p>
+                
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
-                    <div class="p-8 bg-teal-50/50 rounded-[2rem] border-2 border-teal-100 flex flex-col justify-between">
-                        <div><h3 class="font-black text-teal-900 mb-2 uppercase text-sm">本地題庫載入</h3><p class="text-xs text-teal-700/80 mb-6">選取電腦中的 YAML 檔案。</p></div>
-                        <button onclick="document.getElementById('q-file').click()" class="w-full py-4 bg-teal-700 text-white rounded-2xl font-bold">選取檔案</button>
+                    <!-- 1. 本地測驗卡 -->
+                    <div class="p-8 bg-teal-50/50 rounded-[2rem] border-2 border-teal-100 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                        <div>
+                            <div class="text-3xl mb-4">📁</div>
+                            <h3 class="font-black text-teal-900 mb-2 uppercase tracking-widest text-sm">本地題庫載入</h3>
+                            <p class="text-xs text-teal-700/80 mb-6 leading-relaxed">選取存放於本機硬碟中的 YAML 或 YML 考題檔案，快速在本機進行離線模擬測驗。</p>
+                        </div>
+                        <button onclick="document.getElementById('q-file').click()" class="w-full py-4 bg-teal-700 text-white rounded-2xl text-sm font-bold hover:bg-teal-800 shadow-md transition-all text-center">選取本地檔案</button>
                         <input type="file" id="q-file" accept=".yaml,.yml" class="hidden" onchange="handleFile(this, 'test')">
                     </div>
-                    <div class="p-8 bg-sky-50/50 rounded-[2rem] border-2 border-sky-100 flex flex-col justify-between">
-                        <div><h3 class="font-black text-sky-900 mb-2 uppercase text-sm">雲端網址快充</h3><p class="text-xs text-sky-700/80 mb-4">貼上 GitHub Raw 網址。</p></div>
-                        <input type="text" id="cloud-url-input" class="w-full px-4 py-3 border border-sky-200 rounded-xl text-xs mb-3" placeholder="https://...">
-                        <button onclick="loadFromInputUrl()" class="w-full py-4 bg-sky-700 text-white rounded-2xl font-bold">載入雲端</button>
+
+                    <!-- 2. 雲端網址快充卡 -->
+                    <div class="p-8 bg-sky-50/50 rounded-[2rem] border-2 border-sky-100 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                        <div>
+                            <div class="text-3xl mb-4">🌐</div>
+                            <h3 class="font-black text-sky-900 mb-2 uppercase tracking-widest text-sm">雲端網址快充</h3>
+                            <p class="text-xs text-sky-700/80 mb-4 leading-relaxed">貼上 GitHub Raw 題庫直連 URL，網頁將自動拉取，並會自動記住您最後一次載入的網址（輸入後按鍵盤「前往」亦可直接載入）。</p>
+                        </div>
+                        <div class="space-y-3">
+                            <input type="text" id="cloud-url-input" class="w-full px-4 py-3 border border-sky-200 rounded-xl text-xs focus:ring-4 focus:ring-sky-100 focus:border-sky-500 outline-none text-stone-700 font-medium animate-none" placeholder="貼上題庫 YAML 網址 (如 https://...)">
+                            <button onclick="loadFromInputUrl()" class="w-full py-4 bg-sky-700 text-white rounded-2xl text-sm font-bold hover:bg-sky-800 shadow-md transition-all">載入雲端題庫</button>
+                        </div>
                     </div>
-                    <div class="p-8 bg-stone-50 rounded-[2rem] border-2 border-stone-200 flex flex-col justify-between">
-                        <div><h3 class="font-black text-stone-900 mb-2 uppercase text-sm">匯入成績</h3><p class="text-xs text-stone-500 mb-6">載入 YAML 成績單複習筆記。</p></div>
-                        <button onclick="document.getElementById('r-file').click()" class="w-full py-4 bg-stone-800 text-white rounded-2xl font-bold">匯入報告</button>
+
+                    <!-- 3. 舊成績複習卡 -->
+                    <div class="p-8 bg-stone-50 rounded-[2rem] border-2 border-stone-200 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                        <div>
+                            <div class="text-3xl mb-4">📓</div>
+                            <h3 class="font-black text-stone-900 mb-2 uppercase tracking-widest text-sm">匯入考過結果</h3>
+                            <p class="text-xs text-stone-500 mb-6 leading-relaxed">載入先前下載的 YAML 成績單。系統將完美重現您當時的作答、正確答案，並解鎖當時手寫的所有筆記。</p>
+                        </div>
+                        <button onclick="document.getElementById('r-file').click()" class="w-full py-4 bg-stone-800 text-white rounded-2xl text-sm font-bold hover:bg-stone-900 shadow-md transition-all text-center">匯入成績報告</button>
                         <input type="file" id="r-file" accept=".yaml,.yml" class="hidden" onchange="handleFile(this, 'review')">
                     </div>
                 </div>
+                
+                <!-- 測驗時間資訊卡 -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                    <div class="p-6 bg-stone-50 rounded-2xl flex items-center justify-between"><div class="text-left"><span class="text-xs text-stone-400 font-bold uppercase block">時間</span><span class="text-2xl font-black">20:00</span></div><span>⏱️</span></div>
-                    <div class="p-6 bg-stone-50 rounded-2xl flex items-center justify-between"><div class="text-left"><span class="text-xs text-stone-400 font-bold uppercase block">總題數</span><span class="text-2xl font-black" id="welcome-total">25 題</span></div><span>📝</span></div>
+                    <div class="p-6 bg-stone-50 rounded-2xl border border-stone-150 flex items-center justify-between">
+                        <div class="text-left">
+                            <span class="text-xs text-stone-400 font-bold uppercase block">建議配速時間</span>
+                            <span class="text-2xl font-black text-stone-800">20 分鐘</span>
+                        </div>
+                        <span class="text-3xl">⏱️</span>
+                    </div>
+                    <div class="p-6 bg-stone-50 rounded-2xl border border-stone-150 flex items-center justify-between">
+                        <div class="text-left">
+                            <span class="text-xs text-stone-400 font-bold uppercase block">精練總題數</span>
+                            <span class="text-2xl font-black text-stone-800" id="welcome-total">25 題</span>
+                        </div>
+                        <span class="text-3xl">📝</span>
+                    </div>
                 </div>
-                <p id="auto-load-hint" class="mt-8 text-xs text-stone-300">偵測中...</p>
+                
+                <!-- 自動偵測與 URL 載入狀態提示 -->
+                <p id="auto-load-hint" class="mt-8 text-xs text-stone-300">正在自動偵測題庫資料...</p>
                 <div id="loading-indicator" class="hidden"><div class="spinner"></div></div>
             </div>
         </section>
+
+        <!-- 測驗引擎介面 -->
         <section id="quiz-engine" class="hidden w-full max-w-7xl flex flex-col md:flex-row gap-6 h-[85vh] fade-in">
+            <!-- 左欄：文章區 -->
             <div class="w-full md:w-3/5 bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
-                <div class="p-4 border-b border-stone-50 bg-stone-50 flex justify-between items-center"><span class="font-black text-stone-400 text-xs uppercase">Passage</span><span id="q-badge" class="px-4 py-1 bg-stone-900 text-white text-xs font-bold rounded-full">Q --</span></div>
-                <div id="passage-display" class="flex-grow p-10 md:p-14 overflow-y-auto custom-scrollbar"></div>
+                <div class="p-4 border-b border-stone-100 bg-stone-50 flex justify-between items-center">
+                    <span class="font-black text-stone-400 text-xs uppercase tracking-widest">Passage Content</span>
+                    <span id="q-badge" class="px-4 py-1 bg-stone-900 text-white text-xs font-bold rounded-full">Q --</span>
+                </div>
+                <div id="passage-display" class="flex-grow p-10 md:p-14 overflow-y-auto custom-scrollbar bg-stone-50/10"></div>
             </div>
+
+            <!-- 右欄：答題區 -->
             <div class="w-full md:w-2/5 flex flex-col gap-4">
-                <div class="bg-white rounded-3xl border border-stone-200 p-10 flex-grow flex flex-col">
-                    <span id="q-part-label" class="text-[10px] font-black uppercase text-amber-700 tracking-widest">Part --</span>
-                    <div id="options-list" class="space-y-4 mt-8 flex-grow overflow-y-auto pr-2"></div>
+                <div class="bg-white rounded-3xl shadow-sm border border-stone-200 p-10 flex-grow flex flex-col">
+                    <div class="mb-8">
+                        <span id="q-part-label" class="text-[10px] font-black uppercase text-amber-700 tracking-widest">Part --</span>
+                        <h3 class="text-xl font-black text-stone-900 mt-1">請選擇最佳選項</h3>
+                    </div>
+                    <div id="options-list" class="space-y-4 flex-grow overflow-y-auto custom-scrollbar pr-2"></div>
                     <div class="mt-8 flex gap-3">
-                        <button onclick="navigate(-1)" class="flex-1 py-4 border border-stone-200 rounded-2xl font-bold text-stone-400">上一題</button>
-                        <button onclick="navigate(1)" id="next-btn" class="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold">下一題</button>
+                        <button onclick="navigate(-1)" id="prev-btn" class="flex-1 py-4 border border-stone-200 rounded-2xl font-bold text-stone-400 hover:bg-stone-50 transition-all">上一題</button>
+                        <button onclick="navigate(1)" id="next-btn" class="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 shadow-xl transition-all">下一題</button>
                     </div>
                 </div>
-                <div class="bg-white rounded-3xl border border-stone-200 p-6 flex flex-col"><div class="q-map-grid overflow-y-auto max-h-48" id="q-map"></div></div>
+                <!-- 題號地圖 -->
+                <div class="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 flex flex-col">
+                    <div class="q-map-grid overflow-y-auto max-h-48 pr-2 custom-scrollbar" id="q-map"></div>
+                </div>
             </div>
         </section>
+
+        <!-- 結果分析儀表板 -->
         <section id="analysis-dashboard" class="hidden w-full max-w-6xl space-y-8 fade-in pb-24">
             <div class="bg-white rounded-[3rem] shadow-2xl p-10 md:p-20 text-center border border-stone-100">
-                <div class="flex justify-between items-center mb-16"><button onclick="window.location.reload()" class="px-8 py-3 bg-stone-100 text-stone-500 rounded-full text-xs font-black uppercase">← Home</button><h2 class="text-4xl font-black">正式分析報告</h2><div class="w-24"></div></div>
+                <div class="flex justify-between items-center mb-16">
+                    <button onclick="window.location.reload()" class="px-8 py-3 bg-stone-100 text-stone-500 rounded-full text-xs font-black hover:bg-stone-200 uppercase transition-all">← Home</button>
+                    <h2 class="text-4xl font-black text-stone-900 tracking-tight">正式分析報告</h2>
+                    <div class="w-24"></div>
+                </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-20">
                     <div class="chart-container"><canvas id="radarChart"></canvas></div>
                     <div class="text-left space-y-8">
-                        <div class="p-12 bg-stone-900 text-white rounded-[2.5rem] text-center">
-                            <div class="text-xs text-stone-500 font-bold mb-2 uppercase opacity-80">Estimated Score</div>
+                        <div class="p-12 bg-stone-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden text-center">
+                            <div class="text-xs text-stone-500 font-bold mb-2 tracking-widest uppercase opacity-80">Estimated Score</div>
                             <div id="res-score" class="text-8xl font-black tracking-tighter">--</div>
-                            <div class="mt-8 text-teal-400 font-black text-sm uppercase">⏱️ Time: <span id="res-time">--</span></div>
+                            <div class="mt-8 text-teal-400 font-black flex items-center justify-center gap-3 text-sm tracking-widest">
+                                ⏱️ Time: <span id="res-time">--</span>
+                            </div>
                         </div>
                         <div id="res-parts" class="grid grid-cols-3 gap-4"></div>
-                        <button onclick="exportResult()" class="w-full py-6 bg-teal-700 text-white font-black rounded-3xl shadow-xl">💾 下載 YAML 錯題筆記</button>
+                        <button onclick="exportResult()" class="w-full py-6 bg-teal-700 text-white font-black rounded-3xl hover:bg-teal-800 shadow-xl transition-all">💾 下載完整 YAML 錯題筆記 (.yaml)</button>
                     </div>
                 </div>
+                
+                <!-- 詳細題解 + 右側黏性固定筆記本區域 -->
                 <div class="text-left border-t border-stone-100 pt-20">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-16 gap-4">
+                        <h3 class="text-3xl font-black">詳細題解分析</h3>
+                        <div class="flex bg-stone-100 p-1.5 rounded-2xl shadow-inner border border-stone-200">
+                            <button id="f-all" onclick="filterReview('all')" class="px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100">全部</button>
+                            <button id="f-wrong" onclick="filterReview('wrong')" class="px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all">錯題</button>
+                        </div>
+                    </div>
+
                     <div class="flex flex-col lg:flex-row gap-8 items-start">
+                        <!-- 左側：題解清單 -->
                         <div id="review-list" class="w-full lg:w-2/3 space-y-16"></div>
+                        
+                        <!-- 右側：獨立黏性固定筆記本 -->
                         <div class="w-full lg:w-1/3 lg:sticky lg:top-24 bg-white p-8 rounded-[2rem] border border-stone-200 shadow-sm flex flex-col">
-                            <h4 class="text-xl font-black mb-3">📓 筆記本</h4>
-                            <textarea id="notebook" class="w-full h-[450px] p-5 border border-stone-200 rounded-2xl outline-none resize-none text-sm leading-relaxed" placeholder="💡 寫下您的單字或片語..."></textarea>
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-2xl">📓</span>
+                                <h4 class="text-xl font-black text-stone-900">筆記本 / 記錯本</h4>
+                            </div>
+                            <p class="text-xs text-stone-400 mb-4 leading-relaxed">
+                                在檢討過程中，您可以直接將不會的單字、片語或句型記錄在下方。儲存報告時，筆記會一同導出到 YAML 檔案。
+                            </p>
+                            <textarea id="notebook" class="w-full h-[450px] p-5 border border-stone-200 rounded-2xl focus:ring-4 focus:ring-teal-100 focus:border-teal-600 outline-none resize-none custom-scrollbar font-medium text-sm leading-relaxed" placeholder="💡 寫下您的專屬筆記：&#10;1. defer (v.) 延期&#10;2. notwithstanding (prep.) 儘管&#10;3. in response to... 作為對...的回應"></textarea>
                         </div>
                     </div>
                 </div>
-                <button onclick="window.location.reload()" class="mt-24 px-20 py-8 bg-stone-900 text-white font-black rounded-full shadow-2xl uppercase tracking-[0.2em]">Restart</button>
+                
+                <button onclick="window.location.reload()" class="mt-24 px-20 py-8 bg-stone-900 text-white font-black rounded-full hover:bg-stone-800 shadow-2xl uppercase tracking-[0.2em]">Restart</button>
             </div>
         </section>
     </main>
+
+    <!-- 客製化彈窗警示元件 (取代原生 Alert) -->
     <div id="alert-modal" class="hidden fixed inset-0 bg-stone-950/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 text-center shadow-2xl border border-stone-100">
-            <div class="text-4xl mb-4">⚠️</div><h3 id="alert-title" class="text-xl font-black mb-2"></h3><p id="alert-message" class="text-stone-500 text-sm mb-6"></p>
-            <button onclick="closeAlertModal()" class="w-full py-3 bg-stone-900 text-white rounded-xl font-bold">確認</button>
+        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl border border-stone-100 fade-in text-center">
+            <div class="text-4xl mb-4">⚠️</div>
+            <h3 id="alert-title" class="text-xl font-black text-stone-950 mb-2">錯誤資訊</h3>
+            <p id="alert-message" class="text-stone-500 text-sm leading-relaxed mb-6">發生了未知的錯誤。</p>
+            <button onclick="closeAlertModal()" class="w-full py-3 bg-stone-900 text-white rounded-xl font-bold hover:bg-stone-800 transition-colors">確認</button>
         </div>
     </div>
+
+    <!-- 客製化確認詢問元件 (取代原生 Confirm) -->
     <div id="confirm-modal" class="hidden fixed inset-0 bg-stone-950/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 text-center shadow-2xl border border-stone-100">
-            <div class="text-4xl mb-4">❓</div><h3 id="confirm-title" class="text-xl font-black mb-2"></h3><p id="confirm-message" class="text-stone-500 text-sm mb-6"></p>
-            <div class="flex gap-3"><button onclick="closeConfirmModal(false)" class="flex-1 py-3 bg-stone-100 rounded-xl font-bold">取消</button><button id="confirm-yes-btn" class="flex-1 py-3 bg-teal-700 text-white rounded-xl font-bold">確認</button></div>
+        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl border border-stone-100 fade-in text-center">
+            <div class="text-4xl mb-4">❓</div>
+            <h3 id="confirm-title" class="text-xl font-black text-stone-950 mb-2">確認操作</h3>
+            <p id="confirm-message" class="text-stone-500 text-sm leading-relaxed mb-6">您確定要執行此操作嗎？</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal(false)" class="flex-1 py-3 bg-stone-100 text-stone-600 rounded-xl font-bold hover:bg-stone-200 transition-colors">取消</button>
+                <button id="confirm-yes-btn" class="flex-1 py-3 bg-teal-700 text-white rounded-xl font-bold hover:bg-teal-800 transition-colors">確認</button>
+            </div>
         </div>
     </div>
+
+    <!-- Toast 通知元件 -->
     <div id="toast" class="hidden px-10 py-5 bg-stone-900 text-white rounded-full shadow-2xl z-[100] success-toast font-bold">✅ 操作成功！</div>
 </div>
 
 <script>
-    let quizData = [], userAnswers = [], currentIdx = 0, timerInterval, startTime, timeStr = "", isReview = false, dataSourceName = "quiz_data";
+    // --- 核心變數 ---
+    let quizData = [], userAnswers = [], currentIdx = 0;
+    let timerInterval, startTime, timeStr = "", isReview = false, dataSourceName = "quiz_data";
+
     const dom = {
-        welcome: document.getElementById('welcome-screen'), engine: document.getElementById('quiz-engine'),
-        dashboard: document.getElementById('analysis-dashboard'), navbar: document.getElementById('navbar'),
-        qMap: document.getElementById('q-map'), reviewList: document.getElementById('review-list'),
-        toast: document.getElementById('toast'), ansCount: document.getElementById('ans-count'),
-        totalCount: document.getElementById('total-count'), notebook: document.getElementById('notebook'),
-        cloudInput: document.getElementById('cloud-url-input'), timerDisplay: document.getElementById('timer-display')
+        welcome: document.getElementById('welcome-screen'),
+        engine: document.getElementById('quiz-engine'),
+        dashboard: document.getElementById('analysis-dashboard'),
+        navbar: document.getElementById('navbar'),
+        qMap: document.getElementById('q-map'),
+        reviewList: document.getElementById('review-list'),
+        toast: document.getElementById('toast'),
+        ansCount: document.getElementById('ans-count'),
+        totalCount: document.getElementById('total-count'),
+        notebook: document.getElementById('notebook'),
+        cloudInput: document.getElementById('cloud-url-input'),
+        timerDisplay: document.getElementById('timer-display')
     };
 
-    function showAlert(title, message) { document.getElementById('alert-title').innerText = title; document.getElementById('alert-message').innerText = message; document.getElementById('alert-modal').classList.remove('hidden'); }
-    function closeAlertModal() { document.getElementById('alert-modal').classList.add('hidden'); }
+    // --- 客製化 Alert & Confirm JS 實作 ---
+    function showAlert(title, message) {
+        document.getElementById('alert-title').innerText = title;
+        document.getElementById('alert-message').innerText = message;
+        document.getElementById('alert-modal').classList.remove('hidden');
+    }
+
+    function closeAlertModal() {
+        document.getElementById('alert-modal').classList.add('hidden');
+    }
+
     let confirmResolve = null;
     function showConfirm(title, message) {
-        document.getElementById('confirm-title').innerText = title; document.getElementById('confirm-message').innerText = message;
+        document.getElementById('confirm-title').innerText = title;
+        document.getElementById('confirm-message').innerText = message;
         document.getElementById('confirm-modal').classList.remove('hidden');
-        return new Promise((r) => { confirmResolve = r; });
+        return new Promise((resolve) => {
+            confirmResolve = resolve;
+        });
     }
-    function closeConfirmModal(res) { document.getElementById('confirm-modal').classList.add('hidden'); if(confirmResolve) { confirmResolve(res); confirmResolve = null; } }
+
+    function closeConfirmModal(result) {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        if (confirmResolve) {
+            confirmResolve(result);
+            confirmResolve = null;
+        }
+    }
     document.getElementById('confirm-yes-btn').onclick = () => closeConfirmModal(true);
 
+    // --- 檔案與路徑管理 ---
+    function handleFile(input, mode) {
+        const file = input.files[0];
+        if (!file) return;
+        dataSourceName = file.name.replace(/\.[^/.]+$/, "");
+        const reader = new FileReader();
+        reader.onload = (e) => loadRawData(e.target.result, mode);
+        reader.readAsText(file);
+    }
+
+    // 格式化日期時間為 YYYYMMDD_HHMM
+    function getFormattedDateTime() {
+        const now = new Date();
+        const YYYY = now.getFullYear();
+        const MM = String(now.getMonth() + 1).padStart(2, '0');
+        const DD = String(now.getDate()).padStart(2, '0');
+        const HH = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        return `${YYYY}${MM}${DD}_${HH}${mm}`;
+    }
+
+    // 🏆 終極自癒過濾器 (Line-by-Line Sanitizer)
     function sanitizeYamlContent(content) {
         if (!content) return "";
-        return content.split(/\r?\n/).filter(line => !line.trim().startsWith('```')).join('\n').trim();
+        const lines = content.split(/\r?\n/);
+        const filteredLines = lines.filter(line => {
+            const trimmed = line.trim();
+            return !trimmed.startsWith('```');
+        });
+        return filteredLines.join('\n').trim();
     }
 
-    function handleFile(input, mode) {
-        const file = input.files[0]; if (!file) return;
-        dataSourceName = file.name.replace(/\.[^/.]+$/, "");
-        const reader = new FileReader(); reader.onload = (e) => loadRawData(e.target.result, mode); reader.readAsText(file);
-    }
-
+    // 雲端輸入 URL 快充載入邏輯 (含記憶功能)
     async function loadFromInputUrl() {
-        const url = dom.cloudInput.value.trim(); if (!url) return showAlert('空白','請輸入網址');
+        const url = dom.cloudInput.value.trim();
+        if (!url) {
+            showAlert('欄位空白', '請先貼上有效的 YAML 題庫直連網址。');
+            return;
+        }
+
+        document.getElementById('auto-load-hint').innerHTML = '<span class="text-sky-600 font-bold animate-pulse">🎯 正在從雲端載入網址題庫...</span>';
         try {
             const res = await fetch(url);
             if (res.ok) {
-                const text = await res.text(); quizData = jsyaml.load(sanitizeYamlContent(text));
-                dataSourceName = url.split('/').pop().split('?')[0] || "remote";
-                localStorage.setItem('toeic_last_cloud_url', url); startExam();
-            } else showAlert('錯誤','載入失敗');
-        } catch (e) { showAlert('失敗','CORS 限制或連線問題'); }
+                const text = await res.text();
+                const cleanText = sanitizeYamlContent(text);
+                quizData = jsyaml.load(cleanText);
+                
+                // 動態設定檔名與記憶該 URL
+                dataSourceName = url.split('/').pop().split('?')[0] || "remote_quiz";
+                localStorage.setItem('toeic_last_cloud_url', url);
+                
+                isReview = false;
+                startExam();
+            } else {
+                showAlert('載入失敗', '伺服器拒絕存取，請確認網址是否正確，且目標伺服器允許 CORS 連線。');
+            }
+        } catch (e) {
+            console.error(e);
+            showAlert('載入失敗', '雲端載入失敗。若您是用手機開啟，請確認以下排查步驟：\n\n1. 點擊畫面右上角「使用預設瀏覽器開啟」改用 Safari 或 Chrome (避開 LINE 內建瀏覽器)。\n2. 檢查複製的網址前後是否有包含多餘的「空白字元」。\n3. 確定該網址為純文字的 raw.githubusercontent.com 直連格式。');
+        }
     }
 
+    // 手機虛擬鍵盤「Enter」前往功能監聽
+    dom.cloudInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            loadFromInputUrl();
+        }
+    });
+
+    // 解析引擎 (專屬 YAML，自帶語法修正與自癒)
     function loadRawData(content, mode) {
         try {
-            const data = jsyaml.load(sanitizeYamlContent(content));
-            if (mode === 'test') { quizData = data; isReview = false; startExam(); }
-            else { quizData = data.quizData; userAnswers = data.userAnswers; dom.notebook.value = data.notes || ""; isReview = true; showDashboard(); }
-        } catch (e) { showAlert('錯誤','解析失敗'); }
+            const cleanContent = sanitizeYamlContent(content);
+            const data = jsyaml.load(cleanContent);
+
+            if (!data) throw new Error("Parsed data is empty");
+
+            if (mode === 'test') {
+                if (data.userAnswers) {
+                    showAlert('提示', '此為成績結果檔，請使用右側「匯入成績結果」功能。');
+                    return;
+                }
+                quizData = data; isReview = false; startExam();
+            } else {
+                if (!data.quizData || !data.userAnswers) {
+                    showAlert('提示', '數據格式不完整（找不到原始題目或作答紀錄）。');
+                    return;
+                }
+                quizData = data.quizData; userAnswers = data.userAnswers; timeStr = data.timeTaken || "N/A";
+                dom.notebook.value = data.notes || "";
+                isReview = true; showDashboard();
+            }
+        } catch (err) { 
+            console.error(err); 
+            showAlert('解析失敗', '檔案格式解析錯誤。系統已嘗試自動修復，若仍失敗請確認內容是否含有 Tab 縮排，或冒號與破折號後方遺漏了空白。');
+        }
     }
 
     function startExam() {
-        userAnswers = Array(quizData.length).fill(null); dom.totalCount.innerText = quizData.length;
-        dom.welcome.classList.add('hidden'); dom.engine.classList.remove('hidden'); dom.navbar.classList.remove('hidden');
-        startTime = Date.now(); let s = 20 * 60; // ⏱️ 20分鐘
+        userAnswers = Array(quizData.length).fill(null);
+        dom.totalCount.innerText = quizData.length;
+        dom.ansCount.innerText = "0";
+        dom.notebook.value = ""; // 重置筆記本
+        dom.welcome.classList.add('hidden');
+        dom.engine.classList.remove('hidden');
+        dom.navbar.classList.remove('hidden');
+        
+        startTime = Date.now();
+        
+        // ⏱️ 正式計時計時器修改為 20 分鐘
+        let s = 20 * 60; 
+        dom.timerDisplay.innerText = "20:00"; 
+        dom.timerDisplay.classList.remove('hidden');
+        
         timerInterval = setInterval(() => {
-            s--; dom.timerDisplay.innerText = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-            if(s<=0) finishExam();
-        }, 1000); renderQuestion();
+            s--;
+            let m = Math.floor(s / 60);
+            dom.timerDisplay.innerText = `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+            if(s <= 0) finishExam();
+        }, 1000);
+        
+        renderQuestion();
     }
 
     function renderQuestion() {
@@ -206,93 +420,211 @@
         document.getElementById('q-badge').innerText = `Q${currentIdx + 1}`;
         document.getElementById('q-part-label').innerText = `Part ${q.part}`;
         const pArea = document.getElementById('passage-display');
-        if (q.part === 5) pArea.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-black text-center p-12 bg-white rounded-3xl border-4 border-teal-50">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 underline">?</span>')}</div></div>`;
-        else pArea.innerHTML = `<div class="passage-box"><div class="reading-content text-stone-700">${q.passage}</div></div><div class="p-8 bg-white rounded-3xl border-l-[12px] border-teal-700 shadow-md text-xl font-black">${q.question}</div>`;
-        const oArea = document.getElementById('options-list'); oArea.innerHTML = '';
+        if (q.part === 5) {
+            pArea.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-3xl font-black text-center leading-relaxed bg-white p-16 rounded-[3rem] border-4 border-teal-50 shadow-sm">${q.question.replace(/_______|_____/g, '<span class="text-teal-700 border-b-4 border-teal-700 px-6 mx-2">?</span>')}</div></div>`;
+        } else {
+            pArea.innerHTML = `<div class="passage-box shadow-sm"><div class="reading-content text-stone-700 text-lg">${q.passage || ''}</div></div><div class="p-10 bg-white rounded-3xl border-l-[16px] border-teal-700 shadow-md ring-1 ring-stone-100"><div class="text-2xl font-black text-stone-900 leading-snug">${q.question}</div></div>`;
+        }
+        const oArea = document.getElementById('options-list');
+        oArea.innerHTML = '';
         q.options.forEach((opt, i) => {
             const isSelected = userAnswers[currentIdx] === i;
             const btn = document.createElement('button');
-            btn.className = `w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center ${isSelected ? 'border-teal-700 bg-teal-50' : 'border-stone-100 bg-white'}`;
-            btn.innerHTML = `<span class="w-10 h-10 rounded-lg flex items-center justify-center mr-4 font-black ${isSelected ? 'bg-teal-700 text-white' : 'bg-stone-100'}">${String.fromCharCode(65+i)}</span><span class="font-bold">${opt}</span>`;
-            if(!isReview) btn.onclick = () => { userAnswers[currentIdx] = i; renderQuestion(); renderMap(); dom.ansCount.innerText = userAnswers.filter(a => a!==null).length; };
+            btn.className = `w-full text-left p-6 rounded-2xl border-2 transition-all flex items-center group ${isSelected ? 'border-teal-700 bg-teal-50/50 shadow-sm animate-pulse' : 'border-stone-100 bg-white hover:border-stone-200'}`;
+            btn.innerHTML = `<span class="w-12 h-12 rounded-xl border-2 flex items-center justify-center mr-6 font-black text-lg ${isSelected ? 'bg-teal-700 text-white border-teal-700' : 'text-stone-300 border-stone-200'}">${String.fromCharCode(65 + i)}</span><span class="font-bold text-lg">${opt}</span>`;
+            if(!isReview) {
+                btn.onclick = () => { 
+                    userAnswers[currentIdx] = i; 
+                    renderQuestion(); 
+                    renderMap(); 
+                    dom.ansCount.innerText = userAnswers.filter(a => a !== null).length; 
+                };
+            }
             oArea.appendChild(btn);
         });
+
         document.getElementById('next-btn').innerText = currentIdx === quizData.length - 1 ? (isReview ? "返回分析" : "結束交卷") : "下一題";
         renderMap();
     }
 
     function renderMap() {
-        dom.qMap.innerHTML = '';
+        const mArea = document.getElementById('q-map');
+        mArea.innerHTML = '';
         quizData.forEach((_, i) => {
             const dot = document.createElement('div');
-            dot.className = `ans-dot ${userAnswers[i] !== null ? 'answered' : 'not-answered'} ${i === currentIdx ? 'current' : ''}`;
-            dot.innerText = i + 1; dot.onclick = () => { currentIdx = i; renderQuestion(); };
-            dom.qMap.appendChild(dot);
+            const isAns = userAnswers[i] !== null;
+            const isCurrent = i === currentIdx;
+            
+            dot.className = `ans-dot ${isAns ? 'answered' : 'not-answered'} ${isCurrent ? 'current' : ''}`;
+            dot.innerText = i + 1;
+            dot.onclick = () => { currentIdx = i; renderQuestion(); renderMap(); };
+            mArea.appendChild(dot);
         });
     }
 
-    function navigate(step) { if(currentIdx+step >= 0 && currentIdx+step < quizData.length) { currentIdx+=step; renderQuestion(); } else if(currentIdx === quizData.length-1 && step === 1) { if(isReview) showDashboard(); else confirmFinish(); } }
-    function jumpToPart(p) { const i = quizData.findIndex(q => q.part === p); if(i !== -1) { currentIdx = i; renderQuestion(); } }
-    async function confirmFinish() { const yes = await showConfirm('結束測驗','確定交卷嗎？'); if(yes) finishExam(); }
-    function finishExam() { clearInterval(timerInterval); const elapsed = Math.floor((Date.now()-startTime)/1000); timeStr = `${Math.floor(elapsed/60)}分${elapsed%60}秒`; showDashboard(); }
+    function navigate(step) {
+        if(currentIdx + step >= 0 && currentIdx + step < quizData.length) { currentIdx += step; renderQuestion(); }
+        else if (currentIdx === quizData.length - 1 && step === 1) { if(isReview) showDashboard(); else confirmFinish(); }
+    }
+
+    function jumpToPart(p) { const idx = quizData.findIndex(q => q.part === p); if(idx !== -1) { currentIdx = idx; renderQuestion(); } }
+    
+    async function confirmFinish() { 
+        const unanswered = userAnswers.filter(a => a === null).length;
+        const msg = unanswered > 0 ? `尚有 ${unanswered} 題未作答，確定要強制交卷並觀看分析嗎？` : '確定要結束測驗並交卷嗎？';
+        const yes = await showConfirm('結束測驗', msg);
+        if (yes) finishExam(); 
+    }
+
+    function finishExam() { clearInterval(timerInterval); const elapsed = Math.floor((Date.now() - startTime)/1000); timeStr = `${Math.floor(elapsed/60)} 分 ${elapsed%60} 秒`; showDashboard(); }
 
     function showDashboard() {
-        dom.welcome.classList.add('hidden'); dom.engine.classList.add('hidden'); dom.navbar.classList.remove('hidden'); dom.dashboard.classList.remove('hidden');
-        const stats = [5,6,7].map(p => {
+        dom.welcome.classList.add('hidden');
+        dom.engine.classList.add('hidden');
+        dom.navbar.classList.remove('hidden');
+        dom.dashboard.classList.remove('hidden');
+        if(isReview) {
+            dom.timerDisplay.classList.add('hidden');
+            document.getElementById('nav-parts').classList.add('hidden');
+            document.getElementById('finish-btn').classList.add('hidden');
+            document.getElementById('review-tag').classList.remove('hidden');
+            dom.totalCount.innerText = quizData.length;
+            dom.ansCount.innerText = userAnswers.filter(a => a !== null).length;
+        }
+        const stats = [5, 6, 7].map(p => {
             const qs = quizData.filter(q => q.part === p);
             const correct = qs.filter(q => userAnswers[quizData.indexOf(q)] === q.answer).length;
-            return { part: p, correct, total: qs.length, rate: qs.length > 0 ? Math.round(correct/qs.length*100) : 0 };
+            return { part: p, correct, total: qs.length, rate: qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0 };
         });
         document.getElementById('res-score').innerText = Math.round((stats.reduce((a,b)=>a+b.correct,0)/quizData.length)*495/5)*5;
         document.getElementById('res-time').innerText = timeStr;
-        document.getElementById('res-parts').innerHTML = stats.map(s => `<div class="p-4 bg-white rounded-xl border border-stone-100 text-center shadow-sm"><div class="text-[10px] font-black text-stone-400">Part ${s.part}</div><div class="text-xl font-black">${s.rate}%</div></div>`).join('');
+        document.getElementById('res-parts').innerHTML = stats.map(s => `<div class="p-6 bg-white rounded-2xl border border-stone-100 text-center shadow-sm"><div class="text-[10px] text-stone-400 font-black uppercase tracking-widest mb-1">Part ${s.part}</div><div class="text-2xl font-black text-stone-800">${s.rate}%</div><div class="text-[10px] font-bold text-teal-600 uppercase mt-1">${s.correct}/${s.total} Correct</div></div>`).join('');
         initChart(stats); renderReview('all');
     }
 
-    function renderReview(filter) {
-        dom.reviewList.innerHTML = '';
+    function renderReview(filter = 'all') {
+        const list = document.getElementById('review-list'); list.innerHTML = '';
+        document.getElementById('f-all').className = filter === 'all' ? 'px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100' : 'px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800';
+        document.getElementById('f-wrong').className = filter === 'wrong' ? 'px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100' : 'px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800';
+
         quizData.forEach((q, i) => {
-            const isCorrect = userAnswers[i] === q.answer; if(filter === 'wrong' && isCorrect) return;
-            const card = document.createElement('div'); card.className = `p-10 rounded-[2.5rem] border-2 shadow-sm ${isCorrect ? 'bg-white' : 'bg-red-50/20 border-red-200'}`;
-            const options = q.options.map((opt, idx) => {
-                const isAns = idx === q.answer, isMine = idx === userAnswers[i];
-                let cls = "p-4 rounded-xl border-2 mb-2 flex items-center ";
-                if(isAns) cls += "bg-teal-50 border-teal-500 font-bold"; else if(isMine) cls += "bg-red-50 border-red-400"; else cls += "opacity-50";
-                return `<div class="${cls}"><span class="mr-3">${String.fromCharCode(65+idx)}</span>${opt} ${isAns ? '✓' : isMine ? '✗' : ''}</div>`;
+            const uIdx = userAnswers[i]; const isCorrect = uIdx === q.answer;
+            if (filter === 'wrong' && isCorrect) return;
+            const card = document.createElement('div');
+            card.className = `p-12 rounded-[3.5rem] border-2 transition-all fade-in shadow-md ${isCorrect ? 'bg-white border-stone-100 shadow-sm' : 'bg-red-50/20 border-red-200'}`;
+            const optionsHtml = q.options.map((opt, optIdx) => {
+                const isAns = optIdx === q.answer; const isMine = optIdx === uIdx;
+                let cls = "p-5 rounded-2xl border-2 flex items-center gap-4 "; let badge = "";
+                if (isAns) { 
+                    cls += "bg-teal-50 border-teal-500 text-teal-900"; 
+                    if (isMine) {
+                        badge = '<span class="ml-auto bg-teal-600 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">✓ Correct Selection</span>';
+                    } else {
+                        badge = '<span class="ml-auto bg-teal-500 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">Correct</span>';
+                    }
+                } else if (isMine && !isCorrect) { 
+                    cls += "bg-red-50 border-red-400 text-red-900"; 
+                    badge = '<span class="ml-auto bg-red-400 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">Your Choice</span>'; 
+                } else { 
+                    cls += "bg-white border-stone-50 text-stone-400 opacity-60"; 
+                }
+                return `<div class="${cls}"><span class="w-8 h-8 rounded-lg flex items-center justify-center font-black border border-current text-xs">${String.fromCharCode(65+optIdx)}</span><span class="font-bold">${opt}</span>${badge}</div>`;
             }).join('');
-            card.innerHTML = `<div class="mb-4 text-xs font-black uppercase text-stone-400">Q${i+1} · Part ${q.part}</div><div class="mb-6 italic text-stone-600 text-sm">${q.passage || ''}</div><div class="text-xl font-black mb-6">${q.question}</div>${options}<div class="mt-6 p-4 bg-stone-50 rounded-xl text-sm">${q.explanation}</div>`;
-            dom.reviewList.appendChild(card);
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-10"><span class="px-6 py-2 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest text-xs">Q${q.id || (i+1)} · Part ${q.part}</span><span class="text-xs font-black uppercase ${isCorrect ? 'text-teal-600' : 'text-red-600'}">${isCorrect ? '✓ Excellent' : '✗ Needs Review'}</span></div>
+                ${q.passage ? `<div class="mb-10 p-10 bg-stone-50 rounded-[2.5rem] text-sm italic border border-stone-100 leading-relaxed shadow-inner max-h-80 overflow-y-auto custom-scrollbar">${q.passage}</div>` : ''}
+                <div class="text-2xl font-black text-stone-800 mb-10 leading-tight">${q.question.replace(/_______|_____/g, '______')}</div>
+                <div class="space-y-3 mb-12">${optionsHtml}</div>
+                <div class="p-10 bg-white rounded-[2rem] border border-stone-100 shadow-inner leading-relaxed"><div class="font-black text-stone-400 text-[10px] uppercase mb-4 tracking-widest">Expert Analysis</div><div class="text-stone-700 text-lg">${q.explanation || '尚無解析。'}</div></div>
+            `;
+            list.appendChild(card);
         });
     }
 
     function initChart(stats) {
         const ctx = document.getElementById('radarChart').getContext('2d');
-        if (window.r) window.r.destroy();
-        window.r = new Chart(ctx, { type: 'radar', data: { labels: ['Part 5', 'Part 6', 'Part 7'], datasets: [{ data: stats.map(s => s.rate), backgroundColor: 'rgba(13,148,136,0.1)', borderColor: '#0d9488', borderWidth: 4 }] }, options: { plugins: { legend: { display: false } }, scales: { r: { suggestedMax: 100 } } } });
+        if (window.radarInstance instanceof Chart) window.radarInstance.destroy();
+        window.radarInstance = new Chart(ctx, {
+            type: 'radar', data: { labels: ['Part 5', 'Part 6', 'Part 7'], datasets: [{ data: stats.map(s => s.rate), backgroundColor: 'rgba(13, 148, 136, 0.15)', borderColor: '#0d9488', borderWidth: 5, pointRadius: 5 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+        });
     }
 
     function exportResult() {
-        const out = { quizData, userAnswers, timeTaken: timeStr, notes: dom.notebook.value, exportedAt: new Date().toLocaleString() };
-        const blob = new Blob([jsyaml.dump(out)], { type: "text/yaml" });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report_${dataSourceName}.yaml`; a.click();
-        document.getElementById('toast').classList.remove('hidden'); setTimeout(()=>document.getElementById('toast').classList.add('hidden'), 3000);
+        const timestamp = getFormattedDateTime();
+        const exportFileName = `report_${dataSourceName}_${timestamp}.yaml`;
+        const outputData = { quizData, userAnswers, timeTaken: timeStr, notes: dom.notebook.value, exportedAt: new Date().toLocaleString() };
+        
+        const yamlString = jsyaml.dump(outputData, { indent: 2, lineWidth: -1 });
+        const blob = new Blob([yamlString], { type: "text/yaml;charset=utf-8" });
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = exportFileName; 
+        a.click();
+        
+        showToast(`已成功匯出報告：${exportFileName}`);
     }
 
+    function filterReview(f) { renderReview(f); }
+    function showToast(m) { dom.toast.innerText = m; dom.toast.classList.remove('hidden'); setTimeout(()=>dom.toast.classList.add('hidden'), 3000); }
+
+    // --- 自動載入 / 初始化邏輯 ---
     window.onload = async () => {
-        const savedUrl = localStorage.getItem('toeic_last_cloud_url'); if (savedUrl) dom.cloudInput.value = savedUrl;
-        const params = new URLSearchParams(window.location.search), remoteUrl = params.get('data');
+        // 記憶功能
+        const rememberedUrl = localStorage.getItem('toeic_last_cloud_url');
+        if (rememberedUrl) {
+            dom.cloudInput.value = rememberedUrl;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const remoteUrl = params.get('data');
+        let loaded = false;
+
         if (remoteUrl) {
+            document.getElementById('auto-load-hint').innerHTML = '<span class="text-teal-600 font-bold animate-pulse">🎯 正在從雲端網址載入共享題庫...</span>';
             try {
                 const res = await fetch(remoteUrl);
-                if (res.ok) { quizData = jsyaml.load(sanitizeYamlContent(await res.text())); dataSourceName = remoteUrl.split('/').pop(); startExam(); return; }
-            } catch (e) { showAlert('提示','URL 載入受阻'); }
+                if (res.ok) {
+                    const text = await res.text();
+                    const cleanText = sanitizeYamlContent(text);
+                    quizData = jsyaml.load(cleanText);
+                    dataSourceName = remoteUrl.split('/').pop().split('?')[0] || "remote_quiz";
+                    loaded = true;
+                    startExam();
+                    return;
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('自動載入失敗', '偵測到網址參數，但受限於行動裝置安全性或跨來源政策 (CORS)，無法在本地端完成自動提取。將回復至主畫面選單。');
+            }
         }
-        try {
-            const res = await fetch('./quiz_data.yaml');
-            if (res.ok) { quizData = jsyaml.load(sanitizeYamlContent(await res.text())); document.getElementById('auto-load-hint').innerText = "✓ 偵測到本地 quiz_data.yaml"; }
-        } catch(e) {}
-        dom.welcome.classList.remove('hidden');
+
+        if (!loaded) {
+            try {
+                const res = await fetch('./quiz_data.yaml');
+                if (res.ok) {
+                    const text = await res.text();
+                    const cleanText = sanitizeYamlContent(text);
+                    quizData = jsyaml.load(cleanText);
+                    dataSourceName = "quiz_data";
+                    document.getElementById('auto-load-hint').innerHTML = '<span class="text-teal-600 font-bold uppercase animate-pulse">✓ 成功自動偵測到 quiz_data.yaml</span>';
+                    prepareWelcomeScreen();
+                } else {
+                    document.getElementById('auto-load-hint').innerHTML = '<span class="text-amber-600 font-bold">未偵測到同資料夾 quiz_data.yaml，請手動載入檔案或輸入網址。</span>';
+                }
+            } catch(e) {
+                document.getElementById('auto-load-hint').innerHTML = '<span class="text-amber-600 font-bold">未偵測到同資料夾 quiz_data.yaml，請手動載入檔案或輸入網址。</span>';
+            }
+        }
+        document.getElementById('welcome-content').classList.remove('hidden'); 
+        document.getElementById('loading-indicator').classList.add('hidden');
     };
+
+    function prepareWelcomeScreen() {
+        if (quizData && quizData.length > 0) {
+            document.getElementById('welcome-total').innerText = quizData.length + " 題";
+        }
+    }
 </script>
 </body>
 </html>
