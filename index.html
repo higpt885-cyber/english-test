@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC 多益全真閱讀模擬考場 v3.15</title>
+    <title>TOEIC 多益全真閱讀模擬考場 v3.17</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 引入官方穩定版 YAML 解析器 -->
@@ -34,6 +34,12 @@
 <body class="bg-stone-50 text-stone-800 font-sans antialiased">
 
 <div id="app" class="min-h-screen flex flex-col">
+    <!-- 手機端 LINE/FB 內建瀏覽器警告條 -->
+    <div id="in-app-browser-banner" class="hidden bg-amber-500 text-white px-4 py-3 text-xs md:text-sm font-bold text-center relative z-[100] shadow-md">
+        ⚠️ 偵測到您正使用 LINE / Facebook 內建瀏覽器，這可能會阻止雲端題庫的下載。<br class="block sm:hidden">
+        請點擊右上角 <span class="bg-amber-600 px-1.5 py-0.5 rounded text-[10px]">···</span> 並選擇 <span class="underline">「使用預設瀏覽器開啟」</span> 以確保考場正常運行！
+    </div>
+
     <!-- 頂部導航列 -->
     <nav id="navbar" class="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 py-4 shadow-sm hidden">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -63,7 +69,7 @@
             <div id="welcome-content">
                 <div class="text-6xl mb-6">🎯</div>
                 <h1 class="text-4xl font-black text-stone-900 mb-2 tracking-tight">TOEIC 智慧 YAML 考場</h1>
-                <p class="text-stone-500 mb-12 text-lg">智慧辨識自癒引擎 v3.15 (手機鍵盤優化版)</p>
+                <p class="text-stone-500 mb-12 text-lg">智慧辨識自癒引擎 v3.17 (自適應手機防護優化)</p>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
                     <!-- 1. 本地測驗卡 -->
@@ -71,7 +77,7 @@
                         <div>
                             <div class="text-3xl mb-4">📁</div>
                             <h3 class="font-black text-teal-900 mb-2 uppercase tracking-widest text-sm">本地題庫載入</h3>
-                            <p class="text-xs text-teal-700/80 mb-6 leading-relaxed">選取存放於本機硬碟中的 YAML 或 YML 考題檔案，快速在本機進行離線模擬測驗。</p>
+                            <p class="text-xs text-teal-700/80 mb-6 leading-relaxed">選取存放於本機硬碟中的 YAML 或 YML 考題檔案，快速進行模擬測驗。</p>
                         </div>
                         <button onclick="document.getElementById('q-file').click()" class="w-full py-4 bg-teal-700 text-white rounded-2xl text-sm font-bold hover:bg-teal-800 shadow-md transition-all text-center">選取本地檔案</button>
                         <input type="file" id="q-file" accept=".yaml,.yml" class="hidden" onchange="handleFile(this, 'test')">
@@ -82,10 +88,10 @@
                         <div>
                             <div class="text-3xl mb-4">🌐</div>
                             <h3 class="font-black text-sky-900 mb-2 uppercase tracking-widest text-sm">雲端網址快充</h3>
-                            <p class="text-xs text-sky-700/80 mb-4 leading-relaxed">貼上 GitHub Raw 題庫直連 URL，網頁將自動拉取，並會自動記住您最後一次載入的網址（輸入後按鍵盤「前往」亦可直接載入）。</p>
+                            <p class="text-xs text-sky-700/80 mb-4 leading-relaxed">支援 GitHub 網址自動修正！貼上任何 GitHub 網址，系統會自動排除隱形空格並自癒修正載入。</p>
                         </div>
                         <div class="space-y-3">
-                            <input type="text" id="cloud-url-input" class="w-full px-4 py-3 border border-sky-200 rounded-xl text-xs focus:ring-4 focus:ring-sky-100 focus:border-sky-500 outline-none text-stone-700 font-medium animate-none" placeholder="貼上題庫 YAML 網址 (如 https://...)">
+                            <input type="text" id="cloud-url-input" class="w-full px-4 py-3 border border-sky-200 rounded-xl text-xs focus:ring-4 focus:ring-sky-100 focus:border-sky-500 outline-none text-stone-700 font-medium" placeholder="貼上 GitHub YAML 網址 (如 https://...)">
                             <button onclick="loadFromInputUrl()" class="w-full py-4 bg-sky-700 text-white rounded-2xl text-sm font-bold hover:bg-sky-800 shadow-md transition-all">載入雲端題庫</button>
                         </div>
                     </div>
@@ -95,7 +101,7 @@
                         <div>
                             <div class="text-3xl mb-4">📓</div>
                             <h3 class="font-black text-stone-900 mb-2 uppercase tracking-widest text-sm">匯入考過結果</h3>
-                            <p class="text-xs text-stone-500 mb-6 leading-relaxed">載入先前下載的 YAML 成績單。系統將完美重現您當時的作答、正確答案，並解鎖當時手寫的所有筆記。</p>
+                            <p class="text-xs text-stone-500 mb-6 leading-relaxed">載入先前下載的 YAML 成績單。系統將完美重現您當時的作答、正確答案，並還原手寫的所有筆記。</p>
                         </div>
                         <button onclick="document.getElementById('r-file').click()" class="w-full py-4 bg-stone-800 text-white rounded-2xl text-sm font-bold hover:bg-stone-900 shadow-md transition-all text-center">匯入成績報告</button>
                         <input type="file" id="r-file" accept=".yaml,.yml" class="hidden" onchange="handleFile(this, 'review')">
@@ -152,7 +158,7 @@
                 </div>
                 <!-- 題號地圖 -->
                 <div class="bg-white rounded-3xl shadow-sm border border-stone-200 p-6 flex flex-col">
-                    <div class="q-map-grid overflow-y-auto max-h-48 pr-2 custom-scrollbar" id="q-map"></div>
+                    <div class="q-map-grid overflow-y-auto max-h-48 pr-2 custom-scrollbar" id="question-map"></div>
                 </div>
             </div>
         </section>
@@ -161,7 +167,7 @@
         <section id="analysis-dashboard" class="hidden w-full max-w-6xl space-y-8 fade-in pb-24">
             <div class="bg-white rounded-[3rem] shadow-2xl p-10 md:p-20 text-center border border-stone-100">
                 <div class="flex justify-between items-center mb-16">
-                    <button onclick="window.location.reload()" class="px-8 py-3 bg-stone-100 text-stone-500 rounded-full text-xs font-black hover:bg-stone-200 uppercase transition-all">← Home</button>
+                    <button onclick="window.location.reload()" class="px-8 py-3 bg-stone-100 text-stone-500 rounded-full text-xs font-black hover:bg-stone-200 uppercase tracking-widest transition-all">← Home</button>
                     <h2 class="text-4xl font-black text-stone-900 tracking-tight">正式分析報告</h2>
                     <div class="w-24"></div>
                 </div>
@@ -218,7 +224,7 @@
         <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl border border-stone-100 fade-in text-center">
             <div class="text-4xl mb-4">⚠️</div>
             <h3 id="alert-title" class="text-xl font-black text-stone-950 mb-2">錯誤資訊</h3>
-            <p id="alert-message" class="text-stone-500 text-sm leading-relaxed mb-6">發生了未知的錯誤。</p>
+            <p id="alert-message" class="text-stone-500 text-sm leading-relaxed mb-6 break-all">發生了未知的錯誤。</p>
             <button onclick="closeAlertModal()" class="w-full py-3 bg-stone-900 text-white rounded-xl font-bold hover:bg-stone-800 transition-colors">確認</button>
         </div>
     </div>
@@ -250,7 +256,7 @@
         engine: document.getElementById('quiz-engine'),
         dashboard: document.getElementById('analysis-dashboard'),
         navbar: document.getElementById('navbar'),
-        qMap: document.getElementById('q-map'),
+        qMap: document.getElementById('question-map'),
         reviewList: document.getElementById('review-list'),
         toast: document.getElementById('toast'),
         ansCount: document.getElementById('ans-count'),
@@ -322,9 +328,39 @@
         return filteredLines.join('\n').trim();
     }
 
-    // 雲端輸入 URL 快充載入邏輯 (含記憶功能)
+    // 🏆 智慧自癒修正與不可見字元清理器 (手機防呆機制)
+    function convertToRawGitHubUrl(url) {
+        if (!url) return "";
+        
+        // 🚀 關鍵修正：徹底移除手機鍵盤貼上時可能夾帶的「零寬度空格 (\u200b-\u200d)」與「不可見控制字元」
+        let cleanUrl = url.replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, "").trim();
+        cleanUrl = cleanUrl.replace(/^[\s\r\n\t]+|[\s\r\n\t]+$/g, "");
+
+        // 1. 如果貼入標準的 github.com 頁面網址，自動轉換為 raw.githubusercontent 網址
+        if (cleanUrl.includes('github.com')) {
+            cleanUrl = cleanUrl
+                .replace('github.com', 'raw.githubusercontent.com')
+                .replace('/blob/refs/heads/', '/')
+                .replace('/blob/', '/')
+                .replace('/raw/refs/heads/', '/')
+                .replace('/raw/', '/');
+        }
+
+        // 2. 如果是 raw 網址但因複製不當帶有 refs/heads/ 或 blob/，則自動剃除自癒
+        if (cleanUrl.includes('raw.githubusercontent.com')) {
+            cleanUrl = cleanUrl
+                .replace('/refs/heads/', '/')
+                .replace('/blob/', '/');
+        }
+
+        return cleanUrl;
+    }
+
+    // 雲端輸入 URL 快充載入邏輯 (含自動修正與記憶功能)
     async function loadFromInputUrl() {
-        const url = dom.cloudInput.value.trim();
+        const rawInput = dom.cloudInput.value;
+        const url = convertToRawGitHubUrl(rawInput); // 自動自癒修正與手機隱形空格清理
+        
         if (!url) {
             showAlert('欄位空白', '請先貼上有效的 YAML 題庫直連網址。');
             return;
@@ -338,18 +374,19 @@
                 const cleanText = sanitizeYamlContent(text);
                 quizData = jsyaml.load(cleanText);
                 
-                // 動態設定檔名與記憶該 URL
+                // 動態設定檔名與記憶「校正後」的正確 URL
                 dataSourceName = url.split('/').pop().split('?')[0] || "remote_quiz";
                 localStorage.setItem('toeic_last_cloud_url', url);
+                dom.cloudInput.value = url; // 回寫正確的網址到輸入框
                 
                 isReview = false;
                 startExam();
             } else {
-                showAlert('載入失敗', '伺服器拒絕存取，請確認網址是否正確，且目標伺服器允許 CORS 連線。');
+                showAlert('載入失敗', `伺服器拒絕存取，這可能是 404 找不到檔案 (狀態碼: ${res.status})。\n請確認該題庫檔案是否已在 GitHub 設為公開 (Public) 狀態。\n\n系統實際請求網址：\n${url}`);
             }
         } catch (e) {
             console.error(e);
-            showAlert('載入失敗', '雲端載入失敗。若您是用手機開啟，請確認以下排查步驟：\n\n1. 點擊畫面右上角「使用預設瀏覽器開啟」改用 Safari 或 Chrome (避開 LINE 內建瀏覽器)。\n2. 檢查複製的網址前後是否有包含多餘的「空白字元」。\n3. 確定該網址為純文字的 raw.githubusercontent.com 直連格式。');
+            showAlert('載入失敗', `無法與伺服器建立連線（錯誤訊息: ${e.name} - ${e.message}）。\n\n1. 如果您正使用 LINE 或 FB 開啟，請立刻點擊右上角「...」並改用手機內建 Chrome 或 Safari 瀏覽器打開！\n2. 請檢查您的手機網路或 Wi-Fi 是否流暢。\n3. 系統實際請求網址為：\n${url}`);
         }
     }
 
@@ -385,7 +422,7 @@
             }
         } catch (err) { 
             console.error(err); 
-            showAlert('解析失敗', '檔案格式解析錯誤。系統已嘗試自動修復，若仍失敗請確認內容是否含有 Tab 縮排，或冒號與破折號後方遺漏了空白。');
+            showAlert('解析失敗', `檔案格式解析錯誤 (${err.message})。系統已嘗試自動修復，若仍失敗請確認內容是否含有 Tab 縮排，或冒號與破折號後方遺漏了空白。`);
         }
     }
 
@@ -448,7 +485,7 @@
     }
 
     function renderMap() {
-        const mArea = document.getElementById('q-map');
+        const mArea = dom.qMap;
         mArea.innerHTML = '';
         quizData.forEach((_, i) => {
             const dot = document.createElement('div');
@@ -467,7 +504,7 @@
         else if (currentIdx === quizData.length - 1 && step === 1) { if(isReview) showDashboard(); else confirmFinish(); }
     }
 
-    function jumpToPart(p) { const idx = quizData.findIndex(q => q.part === p); if(idx !== -1) { currentIdx = idx; renderQuestion(); } }
+    function jumpToPart(p) { const idx = quizData.findIndex(q => q.part === p); if(idx !== -1) { currentIdx = idx; renderQuestion(); renderMap(); } }
     
     async function confirmFinish() { 
         const unanswered = userAnswers.filter(a => a === null).length;
@@ -481,9 +518,10 @@
     function showDashboard() {
         dom.welcome.classList.add('hidden');
         dom.engine.classList.add('hidden');
-        dom.navbar.classList.remove('hidden');
+        dom.nav.classList.remove('hidden');
         dom.dashboard.classList.remove('hidden');
-        if(isReview) {
+        
+        if (isReview) {
             dom.timerDisplay.classList.add('hidden');
             document.getElementById('nav-parts').classList.add('hidden');
             document.getElementById('finish-btn').classList.add('hidden');
@@ -491,64 +529,86 @@
             dom.totalCount.innerText = quizData.length;
             dom.ansCount.innerText = userAnswers.filter(a => a !== null).length;
         }
+
+        generateAnalytics();
+    }
+
+    function generateAnalytics() {
+        dom.timeDisplay.innerText = timeStr;
         const stats = [5, 6, 7].map(p => {
             const qs = quizData.filter(q => q.part === p);
             const correct = qs.filter(q => userAnswers[quizData.indexOf(q)] === q.answer).length;
             return { part: p, correct, total: qs.length, rate: qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0 };
         });
-        document.getElementById('res-score').innerText = Math.round((stats.reduce((a,b)=>a+b.correct,0)/quizData.length)*495/5)*5;
-        document.getElementById('res-time').innerText = timeStr;
-        document.getElementById('res-parts').innerHTML = stats.map(s => `<div class="p-6 bg-white rounded-2xl border border-stone-100 text-center shadow-sm"><div class="text-[10px] text-stone-400 font-black uppercase tracking-widest mb-1">Part ${s.part}</div><div class="text-2xl font-black text-stone-800">${s.rate}%</div><div class="text-[10px] font-bold text-teal-600 uppercase mt-1">${s.correct}/${s.total} Correct</div></div>`).join('');
-        initChart(stats); renderReview('all');
+
+        document.getElementById('part-score-summary').innerHTML = stats.map(s => `
+            <div class="p-6 bg-white rounded-3xl border border-stone-100 text-center shadow-sm">
+                <div class="text-[10px] text-stone-400 font-black mb-1 uppercase tracking-tighter">Part ${s.part}</div>
+                <div class="text-2xl font-black text-stone-800">${s.rate}%</div>
+                <div class="text-[10px] text-teal-600 font-bold mt-1 uppercase">${s.correct}/${s.total} Correct</div>
+            </div>
+        `).join('');
+
+        const totalCorrect = stats.reduce((acc, s) => acc + s.correct, 0);
+        document.getElementById('res-score').innerText = Math.round(((totalCorrect / quizData.length) * 495) / 5) * 5;
+        
+        renderReview('all');
+        initRadarChart(stats);
     }
 
     function renderReview(filter = 'all') {
-        const list = document.getElementById('review-list'); list.innerHTML = '';
-        document.getElementById('f-all').className = filter === 'all' ? 'px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100' : 'px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800';
-        document.getElementById('f-wrong').className = filter === 'wrong' ? 'px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100' : 'px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800';
+        const allBtn = document.getElementById('f-all');
+        const wrongBtn = document.getElementById('f-wrong');
+        
+        if (filter === 'all') {
+            allBtn.className = "px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100";
+            wrongBtn.className = "px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all";
+        } else {
+            allBtn.className = "px-10 py-3 text-xs font-black rounded-xl text-stone-400 hover:text-stone-800 transition-all";
+            wrongBtn.className = "px-10 py-3 text-xs font-black rounded-xl bg-white text-stone-800 shadow-sm border border-stone-100";
+        }
 
+        dom.reviewList.innerHTML = '';
         quizData.forEach((q, i) => {
-            const uIdx = userAnswers[i]; const isCorrect = uIdx === q.answer;
+            const isCorrect = userAnswers[i] === q.answer;
             if (filter === 'wrong' && isCorrect) return;
+
             const card = document.createElement('div');
-            card.className = `p-12 rounded-[3.5rem] border-2 transition-all fade-in shadow-md ${isCorrect ? 'bg-white border-stone-100 shadow-sm' : 'bg-red-50/20 border-red-200'}`;
-            const optionsHtml = q.options.map((opt, optIdx) => {
-                const isAns = optIdx === q.answer; const isMine = optIdx === uIdx;
-                let cls = "p-5 rounded-2xl border-2 flex items-center gap-4 "; let badge = "";
-                if (isAns) { 
-                    cls += "bg-teal-50 border-teal-500 text-teal-900"; 
-                    if (isMine) {
-                        badge = '<span class="ml-auto bg-teal-600 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">✓ Correct Selection</span>';
-                    } else {
-                        badge = '<span class="ml-auto bg-teal-500 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">Correct</span>';
-                    }
-                } else if (isMine && !isCorrect) { 
-                    cls += "bg-red-50 border-red-400 text-red-900"; 
-                    badge = '<span class="ml-auto bg-red-400 text-white text-[10px] px-2 py-1 rounded-lg font-black uppercase">Your Choice</span>'; 
-                } else { 
-                    cls += "bg-white border-stone-50 text-stone-400 opacity-60"; 
-                }
-                return `<div class="${cls}"><span class="w-8 h-8 rounded-lg flex items-center justify-center font-black border border-current text-xs">${String.fromCharCode(65+optIdx)}</span><span class="font-bold">${opt}</span>${badge}</div>`;
-            }).join('');
+            card.className = `p-10 rounded-[2.5rem] border-2 transition-all fade-in ${isCorrect ? 'bg-white border-stone-100 shadow-sm' : 'bg-red-50/50 border-red-200'}`;
+            
+            let passageHtml = q.passage ? `<div class="mb-6 p-6 bg-stone-50 rounded-2xl text-sm italic border border-stone-100 overflow-y-auto max-h-60 custom-scrollbar shadow-inner leading-relaxed">${q.passage}</div>` : '';
+
             card.innerHTML = `
-                <div class="flex justify-between items-center mb-10"><span class="px-6 py-2 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest text-xs">Q${q.id || (i+1)} · Part ${q.part}</span><span class="text-xs font-black uppercase ${isCorrect ? 'text-teal-600' : 'text-red-600'}">${isCorrect ? '✓ Excellent' : '✗ Needs Review'}</span></div>
-                ${q.passage ? `<div class="mb-10 p-10 bg-stone-50 rounded-[2.5rem] text-sm italic border border-stone-100 leading-relaxed shadow-inner max-h-80 overflow-y-auto custom-scrollbar">${q.passage}</div>` : ''}
-                <div class="text-2xl font-black text-stone-800 mb-10 leading-tight">${q.question.replace(/_______|_____/g, '______')}</div>
-                <div class="space-y-3 mb-12">${optionsHtml}</div>
-                <div class="p-10 bg-white rounded-[2rem] border border-stone-100 shadow-inner leading-relaxed"><div class="font-black text-stone-400 text-[10px] uppercase mb-4 tracking-widest">Expert Analysis</div><div class="text-stone-700 text-lg">${q.explanation || '尚無解析。'}</div></div>
+                <div class="flex justify-between items-center mb-8">
+                    <span class="px-5 py-1.5 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest">Q${q.id || (i+1)} · Part ${q.part}</span>
+                    <span class="text-xs font-black uppercase ${isCorrect ? 'text-teal-600' : 'text-red-600'}">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>
+                </div>
+                ${passageHtml}
+                <div class="text-2xl font-black text-stone-800 mb-8 leading-tight">${q.question.replace(/_______|_____/g, '______')}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-10">
+                    <div class="p-5 bg-white rounded-2xl border-2 ${isCorrect ? 'border-stone-100' : 'border-red-100'} shadow-sm">
+                        <div class="text-[10px] text-stone-400 font-black uppercase mb-2 tracking-tighter">Your Choice</div>
+                        <div class="font-bold text-lg ${isCorrect ? 'text-stone-800' : 'text-red-600'}">${userAnswers[i] !== null ? String.fromCharCode(65 + userAnswers[i]) + '. ' + q.options[userAnswers[i]] : 'SKIPPED'}</div>
+                    </div>
+                    <div class="p-5 bg-white rounded-2xl border-2 border-teal-100 shadow-sm">
+                        <div class="text-[10px] text-teal-600 font-black uppercase mb-2 tracking-tighter">Correct Answer</div>
+                        <div class="font-bold text-teal-700 text-lg">${String.fromCharCode(65 + q.answer)}. ${q.options[q.answer]}</div>
+                    </div>
+                </div>
+                <div class="p-8 bg-white rounded-3xl border border-stone-100 shadow-inner">
+                    <div class="font-black text-stone-400 text-[10px] uppercase mb-3 tracking-widest">Experts' Analysis</div>
+                    <div class="text-stone-600 leading-relaxed text-base">${q.explanation || 'No explanation provided.'}</div>
+                </div>
             `;
-            list.appendChild(card);
+            dom.reviewList.appendChild(card);
         });
+
+        if (dom.reviewList.innerHTML === '') {
+            dom.reviewList.innerHTML = '<div class="py-24 text-center text-stone-400 text-lg font-black italic opacity-50 uppercase tracking-widest">No matching results to display.</div>';
+        }
     }
 
-    function initChart(stats) {
-        const ctx = document.getElementById('radarChart').getContext('2d');
-        if (window.radarInstance instanceof Chart) window.radarInstance.destroy();
-        window.radarInstance = new Chart(ctx, {
-            type: 'radar', data: { labels: ['Part 5', 'Part 6', 'Part 7'], datasets: [{ data: stats.map(s => s.rate), backgroundColor: 'rgba(13, 148, 136, 0.15)', borderColor: '#0d9488', borderWidth: 5, pointRadius: 5 }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
-        });
-    }
+    function filterReview(type) { renderReview(type); }
 
     function exportResult() {
         const timestamp = getFormattedDateTime();
@@ -565,12 +625,58 @@
         showToast(`已成功匯出報告：${exportFileName}`);
     }
 
-    function filterReview(f) { renderReview(f); }
-    function showToast(m) { dom.toast.innerText = m; dom.toast.classList.remove('hidden'); setTimeout(()=>dom.toast.classList.add('hidden'), 3000); }
+    function showToast(msg) {
+        dom.toast.innerText = msg;
+        dom.toast.classList.remove('hidden');
+        setTimeout(() => dom.toast.classList.add('hidden'), 3000);
+    }
+
+    function initRadarChart(stats) {
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        if (window.radarChartInstance instanceof Chart) {
+            window.radarChartInstance.destroy();
+        }
+        
+        window.radarChartInstance = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Part 5', 'Part 6', 'Part 7'],
+                datasets: [{
+                    label: 'Weight',
+                    data: stats.map(s => s.rate),
+                    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+                    borderColor: '#0d9488',
+                    pointBackgroundColor: '#0d9488',
+                    borderWidth: 5,
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // 🕵️ 手機端與 LINE 內建瀏覽器環境偵測橫幅
+    function detectInAppBrowser() {
+        const ua = navigator.userAgent.toLowerCase();
+        const isLine = ua.includes('line');
+        const isFb = ua.includes('fban') || ua.includes('fbav');
+        const isMessenger = ua.includes('messenger');
+        
+        if (isLine || isFb || isMessenger) {
+            document.getElementById('in-app-browser-banner').classList.remove('hidden');
+        }
+    }
 
     // --- 自動載入 / 初始化邏輯 ---
     window.onload = async () => {
-        // 記憶功能
+        detectInAppBrowser(); // 執行手機 APP 環境檢查
+
+        // 記憶功能：從快取中取回上一次載入成功的雲端題庫
         const rememberedUrl = localStorage.getItem('toeic_last_cloud_url');
         if (rememberedUrl) {
             dom.cloudInput.value = rememberedUrl;
@@ -580,25 +686,28 @@
         const remoteUrl = params.get('data');
         let loaded = false;
 
+        // 1. 若網址後方帶有 ?data= 參數，則自動觸發雲端讀取與自癒修正
         if (remoteUrl) {
+            const parsedUrl = convertToRawGitHubUrl(remoteUrl); // 自動自癒修復與清理不可見空白
             document.getElementById('auto-load-hint').innerHTML = '<span class="text-teal-600 font-bold animate-pulse">🎯 正在從雲端網址載入共享題庫...</span>';
             try {
-                const res = await fetch(remoteUrl);
+                const res = await fetch(parsedUrl);
                 if (res.ok) {
                     const text = await res.text();
                     const cleanText = sanitizeYamlContent(text);
                     quizData = jsyaml.load(cleanText);
-                    dataSourceName = remoteUrl.split('/').pop().split('?')[0] || "remote_quiz";
+                    dataSourceName = parsedUrl.split('/').pop().split('?')[0] || "remote_quiz";
                     loaded = true;
                     startExam();
                     return;
                 }
             } catch (e) {
                 console.error(e);
-                showAlert('自動載入失敗', '偵測到網址參數，但受限於行動裝置安全性或跨來源政策 (CORS)，無法在本地端完成自動提取。將回復至主畫面選單。');
+                showAlert('自動載入失敗', `受限於行動裝置安全性或跨來源政策 (CORS)，無法在當前環境自動提取。\n\n詳細錯誤代碼：\n${e.name}: ${e.message}\n\n系統請求網址：\n${parsedUrl}`);
             }
         }
 
+        // 2. 備援本地讀取：偵測同目錄下的 quiz_data.yaml
         if (!loaded) {
             try {
                 const res = await fetch('./quiz_data.yaml');
@@ -628,3 +737,4 @@
 </script>
 </body>
 </html>
+```
